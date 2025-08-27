@@ -2,7 +2,8 @@
 """
 Mob Finder Direct - Direct Text Reading and Mouse Movement
 This version reads text directly and moves the mouse to any mob with text above it
-within the pre-defined red area margins. Automatically clicks without permission and avoids selecting the character.
+within the pre-defined red area margins. Automatically clicks without permission, avoids selecting the character,
+uses text-to-mob offset for accurate targeting, and continuously presses keyboard buttons (123145).
 """
 
 import time
@@ -13,6 +14,7 @@ from PIL import Image
 import warnings
 import pyautogui
 import cv2
+import threading
 
 # Suppress PyTorch warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
@@ -27,6 +29,7 @@ class MobFinderDirect:
         self.sct = mss.mss()
         self.current_target = None
         self.monitoring_active = False
+        self.keyboard_active = False
         
         # Pre-defined margins for the red area (based on your screenshot)
         # These margins define the game area where mobs are located
@@ -34,6 +37,9 @@ class MobFinderDirect:
         self.margin_bottom = 150   # Above bottom UI panels
         self.margin_left = 200     # Left of game area
         self.margin_right = 200    # Right of game area
+        
+        # Text-to-mob offset: move mouse downward from text to click on mob body
+        self.text_to_mob_offset_y = 50  # pixels downward from text center to mob body
         
         # Load mob names
         self.load_mob_names()
@@ -45,6 +51,8 @@ class MobFinderDirect:
         print(f"📏 Game area: {self.screen_width-self.margin_left-self.margin_right}x{self.screen_height-self.margin_top-self.margin_bottom} pixels")
         print(f"🚫 Ignoring margins: Top={self.margin_top}, Bottom={self.margin_bottom}, Left={self.margin_left}, Right={self.margin_right}")
         print(f"🛡️ Character protection: 100 pixel radius around screen center")
+        print(f"🎯 Text-to-mob offset: {self.text_to_mob_offset_y} pixels downward for accurate targeting")
+        print(f"⌨️ Continuous keyboard pressing: 123145 sequence")
     
     def load_mob_names(self):
         """Load mob names from mobs.txt file"""
@@ -81,6 +89,36 @@ class MobFinderDirect:
         except Exception as e:
             print(f"❌ OCR initialization failed: {e}")
             self.reader = None
+    
+    def continuous_keyboard_pressing(self):
+        """Continuously press keyboard buttons 123145 in a loop"""
+        print("⌨️ Starting continuous keyboard pressing: 123145 sequence")
+        self.keyboard_active = True
+        sequence = "123145"
+        sequence_count = 0
+        
+        try:
+            while self.keyboard_active and self.monitoring_active:
+                for key in sequence:
+                    if not self.keyboard_active or not self.monitoring_active:
+                        break
+                    
+                    try:
+                        pyautogui.press(key)
+                        print(f"   ⌨️ Pressed key: {key}")
+                        time.sleep(0.1)  # Small delay between key presses
+                    except Exception as e:
+                        print(f"   ❌ Key press failed for '{key}': {e}")
+                
+                sequence_count += 1
+                print(f"   🔄 Completed sequence #{sequence_count}: {sequence}")
+                time.sleep(0.5)  # Wait before repeating sequence
+                
+        except Exception as e:
+            print(f"❌ Keyboard pressing error: {e}")
+        finally:
+            self.keyboard_active = False
+            print("⌨️ Continuous keyboard pressing stopped")
     
     def capture_screen(self):
         """Capture screenshot of the entire screen"""
@@ -195,15 +233,20 @@ class MobFinderDirect:
             
             # Check if this text is in the game area and has reasonable confidence
             if confidence > 0.3:
+                # Calculate the actual mob position (text position + offset)
+                mob_x = center_x
+                mob_y = center_y + self.text_to_mob_offset_y  # Move downward to mob body
+                
                 mob_entry = {
                     'text': text,
                     'confidence': confidence,
-                    'position': (center_x, center_y),
+                    'text_position': (center_x, center_y),  # Original text position
+                    'mob_position': (mob_x, mob_y),         # Actual mob body position
                     'bbox': bbox,
                     'distance_from_character': distance_from_character
                 }
                 found_mobs.append(mob_entry)
-                print(f"   ✅ Found potential mob: '{text}' at {mob_entry['position']} (confidence: {confidence:.2f}, distance from character: {distance_from_character:.1f})")
+                print(f"   ✅ Found potential mob: '{text}' at text {mob_entry['text_position']} -> mob {mob_entry['mob_position']} (confidence: {confidence:.2f}, distance from character: {distance_from_character:.1f})")
         
         search_time = time.time() - start_time
         print(f"✅ Mob search completed in {search_time:.3f}s")
@@ -224,8 +267,8 @@ class MobFinderDirect:
         print(f"📍 Character position (screen center): ({screen_center_x}, {screen_center_y})")
         
         for i, mob in enumerate(found_mobs, 1):
-            # Calculate distance from character/center
-            distance = mob['distance_from_character']
+            # Calculate distance from character/center using mob position (not text position)
+            distance = ((mob['mob_position'][0] - screen_center_x) ** 2 + (mob['mob_position'][1] - screen_center_y) ** 2) ** 0.5
             
             # Check if mob is very close (attacking)
             if distance < 150:
@@ -235,15 +278,21 @@ class MobFinderDirect:
             else:
                 status = "📏 Long Range"
                 
-            print(f"   {i}. '{mob['text']}' at {mob['position']} - {status}")
+            print(f"   {i}. '{mob['text']}' - Text at {mob['text_position']}, Mob at {mob['mob_position']} - {status}")
             print(f"      📏 Distance: {distance:.1f} pixels | Confidence: {mob['confidence']:.2f}")
         
-        # Select mob closest to center
-        best_mob = min(found_mobs, key=lambda mob: mob['distance_from_character'])
+        # Select mob closest to center using mob position
+        best_mob = min(found_mobs, key=lambda mob: 
+            ((mob['mob_position'][0] - screen_center_x) ** 2 + (mob['mob_position'][1] - screen_center_y) ** 2) ** 0.5)
+        
+        best_distance = ((best_mob['mob_position'][0] - screen_center_x) ** 2 + (best_mob['mob_position'][1] - screen_center_y) ** 2) ** 0.5
         
         print(f"\n🎯 Selection Results:")
-        print(f"   Best target: '{best_mob['text']}' at {best_mob['position']}")
-        print(f"   Distance from character: {best_mob['distance_from_character']:.1f} pixels")
+        print(f"   Best target: '{best_mob['text']}'")
+        print(f"   Text position: {best_mob['text_position']}")
+        print(f"   Mob position: {best_mob['mob_position']}")
+        print(f"   Distance from character: {best_distance:.1f} pixels")
+        print(f"   Offset applied: {self.text_to_mob_offset_y} pixels downward")
         
         return best_mob
     
@@ -297,7 +346,8 @@ class MobFinderDirect:
         print("   2. Detect text in the game area (red area)")
         print("   3. Find mobs with text above them (avoiding character)")
         print("   4. Select best target (closest to center)")
-        print("   5. Move mouse and AUTOMATICALLY click on target")
+        print("   5. Move mouse to mob body (text position + offset)")
+        print("   6. AUTOMATICALLY click on target")
         print("=" * 50)
         
         total_start_time = time.time()
@@ -333,13 +383,15 @@ class MobFinderDirect:
         
         best_mob = self.select_best_mob(found_mobs)
         if best_mob:
-            # Move mouse to target
-            if self.move_mouse_to_target(best_mob['position']):
+            # Move mouse to mob body position (not text position)
+            if self.move_mouse_to_target(best_mob['mob_position']):
                 print("✅ Mouse movement successful!")
+                print(f"🎯 Mouse positioned at mob body: {best_mob['mob_position']}")
+                print(f"📝 Text was detected at: {best_mob['text_position']}")
                 
                 # Automatically click on target (no permission needed)
                 print("🖱️ Automatically clicking on target...")
-                if self.click_on_target(best_mob['position']):
+                if self.click_on_target(best_mob['mob_position']):
                     print("🎉 Target clicked successfully!")
                 else:
                     print("❌ Click failed")
@@ -357,15 +409,21 @@ class MobFinderDirect:
         print("📋 This mode will:")
         print("   1. Continuously scan the game area")
         print("   2. Find mobs with text above them (avoiding character)")
-        print("   3. Automatically move mouse to best target")
+        print("   3. Automatically move mouse to mob body (text + offset)")
         print("   4. AUTOMATICALLY click on target")
         print("   5. Continue monitoring indefinitely")
+        print("   6. Continuously press keyboard buttons: 123145")
         print("=" * 50)
         print("💡 Press Ctrl+C to stop monitoring")
         print("=" * 50)
         
         self.monitoring_active = True
         round_count = 0
+        
+        # Start keyboard pressing in a separate thread
+        keyboard_thread = threading.Thread(target=self.continuous_keyboard_pressing, daemon=True)
+        keyboard_thread.start()
+        print("⌨️ Keyboard pressing thread started")
         
         try:
             while self.monitoring_active:
@@ -397,15 +455,15 @@ class MobFinderDirect:
                 # Select best target
                 best_mob = self.select_best_mob(found_mobs)
                 if best_mob:
-                    print(f"🎯 Targeting: '{best_mob['text']}' at {best_mob['position']}")
+                    print(f"🎯 Targeting: '{best_mob['text']}' - Text at {best_mob['text_position']}, Mob at {best_mob['mob_position']}")
                     
-                    # Move mouse to target
-                    if self.move_mouse_to_target(best_mob['position']):
-                        print("✅ Mouse moved to target!")
+                    # Move mouse to mob body position
+                    if self.move_mouse_to_target(best_mob['mob_position']):
+                        print("✅ Mouse moved to mob body!")
                         
                         # Automatically click on target
                         print("🖱️ Automatically clicking on target...")
-                        if self.click_on_target(best_mob['position']):
+                        if self.click_on_target(best_mob['mob_position']):
                             print("🎉 Target clicked!")
                         else:
                             print("❌ Click failed")
@@ -419,9 +477,17 @@ class MobFinderDirect:
         except KeyboardInterrupt:
             print("\n⏹️ Continuous monitoring stopped by user")
             self.monitoring_active = False
+            self.keyboard_active = False
         except Exception as e:
             print(f"\n❌ Error in continuous monitoring: {e}")
             self.monitoring_active = False
+            self.keyboard_active = False
+        
+        # Wait for keyboard thread to finish
+        if keyboard_thread.is_alive():
+            print("⌨️ Waiting for keyboard thread to finish...")
+            self.keyboard_active = False
+            keyboard_thread.join(timeout=2)
         
         print("🏁 Continuous monitoring mode ended")
 
@@ -430,51 +496,28 @@ def main():
     print("Find mobs with text above them and move mouse directly to targets")
     print("🖱️ AUTOMATIC CLICKING - No permission needed!")
     print("🛡️ CHARACTER PROTECTION - Avoids selecting your character")
+    print("🎯 SMART TARGETING - Text-to-mob offset for accurate clicks")
+    print("⌨️ CONTINUOUS KEYBOARD - Automatically presses 123145 sequence")
+    print("🔄 AUTO-START - Automatically starts continuous monitoring mode")
     print("=" * 70)
     
     # Create mob finder
     mob_finder = MobFinderDirect()
     
     try:
-        # Ask user which mode they want
-        print("\n🎯 Select Mode:")
-        print("   1. Single Scan (find mobs once)")
-        print("   2. Continuous Monitoring (continuously scan and target)")
-        print("   3. Exit")
+        print("\n🚀 AUTOMATICALLY STARTING CONTINUOUS MONITORING MODE...")
+        print("💡 Press Ctrl+C to stop the application")
+        print("=" * 50)
         
-        while True:
-            try:
-                choice = input("\nEnter your choice (1-3): ").strip()
-                
-                if choice == "1":
-                    print("\n🚀 Starting Single Scan Mode...")
-                    mob_finder.run_single_scan()
-                    break
-                    
-                elif choice == "2":
-                    print("\n🚀 Starting Continuous Monitoring Mode...")
-                    mob_finder.continuous_monitoring_mode()
-                    break
-                    
-                elif choice == "3":
-                    print("👋 Goodbye!")
-                    return
-                    
-                else:
-                    print("❌ Invalid choice. Please enter 1, 2, or 3.")
-                    
-            except KeyboardInterrupt:
-                print("\n⏹️ Operation cancelled by user")
-                break
-            except ValueError:
-                print("❌ Invalid input. Please enter a number.")
-    
+        # Automatically start continuous monitoring mode
+        mob_finder.continuous_monitoring_mode()
+        
     except KeyboardInterrupt:
-        print("\n⏹️ Analysis interrupted by user")
+        print("\n⏹️ Application stopped by user")
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
     
-    print("\n🏁 Analysis complete!")
+    print("\n🏁 Application complete!")
 
 if __name__ == "__main__":
     main()
