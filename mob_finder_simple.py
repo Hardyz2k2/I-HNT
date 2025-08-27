@@ -21,6 +21,7 @@ class MobFinder:
         self.sct = mss.mss()
         self.current_target = None
         self.monitoring_active = False
+        self.previously_selected_mobs = []  # Track previously selected mobs to avoid reselection
         
         # Load mob names
         self.load_mob_names()
@@ -391,8 +392,42 @@ class MobFinder:
             print("   ❌ Health bar disappeared - target died!")
             return False
     
+    def is_mob_previously_selected(self, mob, proximity_threshold=100):
+        """Check if a mob has been previously selected in a proximate location"""
+        if not self.previously_selected_mobs:
+            return False
+        
+        for prev_mob in self.previously_selected_mobs:
+            # Calculate distance between current mob and previously selected mob
+            distance = ((mob['position'][0] - prev_mob['position'][0]) ** 2 + 
+                       (mob['position'][1] - prev_mob['position'][1]) ** 2) ** 0.5
+            
+            # If mobs are close and have the same name, consider it the same mob
+            if distance < proximity_threshold and mob['name'] == prev_mob['name']:
+                print(f"   ⚠️ Skipping '{mob['name']}' - previously selected at distance {distance:.1f} pixels")
+                return True
+        
+        return False
+    
+    def add_to_previously_selected(self, mob):
+        """Add a mob to the previously selected list"""
+        # Store mob info with timestamp
+        mob_record = {
+            'name': mob['name'],
+            'position': mob['position'],
+            'timestamp': time.time(),
+            'text': mob['text']
+        }
+        self.previously_selected_mobs.append(mob_record)
+        
+        # Keep only last 10 previously selected mobs to avoid memory buildup
+        if len(self.previously_selected_mobs) > 10:
+            self.previously_selected_mobs.pop(0)
+        
+        print(f"   📝 Added '{mob['name']}' to previously selected list")
+    
     def select_next_best_mob(self, found_mobs, exclude_current=True):
-        """Select the next best mob, excluding the current target if requested"""
+        """Select the next best mob, excluding the current target and previously selected mobs"""
         if not found_mobs:
             return None
         
@@ -404,8 +439,24 @@ class MobFinder:
                 print("   ⚠️ No other mobs available")
                 return None
         
-        # Use the existing selection logic
-        return self.select_best_mob_instance(available_mobs)
+        # Filter out previously selected mobs in proximate locations
+        fresh_mobs = []
+        for mob in available_mobs:
+            if not self.is_mob_previously_selected(mob):
+                fresh_mobs.append(mob)
+            else:
+                print(f"   🔄 Skipping previously selected mob: {mob['name']}")
+        
+        if not fresh_mobs:
+            print("   ⚠️ All available mobs have been previously selected")
+            print("   🔄 Clearing previously selected list to allow reselection")
+            self.previously_selected_mobs.clear()
+            fresh_mobs = available_mobs
+        
+        print(f"   📊 Available fresh mobs: {len(fresh_mobs)} out of {len(available_mobs)} total")
+        
+        # Use the existing selection logic on fresh mobs
+        return self.select_best_mob_instance(fresh_mobs)
     
     def switch_target(self, new_target, found_mobs):
         """Switch to a new target and update monitoring"""
@@ -416,10 +467,21 @@ class MobFinder:
         
         self.current_target = new_target
         
+        # Add to previously selected list to avoid reselection
+        self.add_to_previously_selected(new_target)
+        
         # Move mouse to new target
         if self.move_mouse_to_target(new_target['position']):
             print(f"   ✅ Mouse moved to new target: {new_target['name']}")
-            return True
+            
+            # Automatically click on the target
+            print(f"   🖱️ Auto-clicking on target: {new_target['name']}")
+            if self.click_on_target(new_target['position']):
+                print(f"   🎯 Target {new_target['name']} selected and clicked!")
+                return True
+            else:
+                print(f"   ❌ Failed to click on target")
+                return False
         else:
             print(f"   ❌ Failed to move mouse to new target")
             return False
@@ -431,9 +493,14 @@ class MobFinder:
         print("📋 This mode will:")
         print("   1. Find all available mobs")
         print("   2. Select the best target (closest/attacking)")
-        print("   3. Monitor the target's health bar")
-        print("   4. Automatically switch to next target when current dies")
-        print("   5. Continue monitoring indefinitely")
+        print("   3. Move mouse and AUTO-CLICK on target")
+        print("   4. Monitor the target's health bar")
+        print("   5. Automatically switch to next target when current dies")
+        print("   6. Avoid reselecting previously targeted mobs")
+        print("   7. Continue monitoring indefinitely")
+        print("=" * 50)
+        print("💡 Note: Mouse will automatically click on each target to select it")
+        print("💡 Note: Previously selected mobs in proximate locations will be avoided")
         print("=" * 50)
         
         self.monitoring_active = True
