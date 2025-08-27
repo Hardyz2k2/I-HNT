@@ -1,15 +1,42 @@
-# Mouse Mover
+# Mouse Mover & Mob Finder Suite
 
+A Python application suite that automatically finds text on the screen, moves the mouse cursor to it, and performs automated actions. Includes a simple mouse mover and advanced mob finders with configurable screen margins.
+
+## Applications
+
+### 1. Mouse Mover (Simple)
 A Python application that automatically finds the text "Light" on the screen, moves the mouse cursor to it, performs a left click, and then stops.
+
+### 2. Mob Finder (Advanced)
+An advanced application that finds mob names from a configurable list, moves the mouse to targets, and monitors health bars with configurable screen margins for improved performance.
+
+### 3. Mob Finder Direct (Fast & Direct)
+A streamlined version that directly reads text in the game area and moves the mouse to any mob with text above it, without text comparison or complex matching.
 
 ## Features
 
+### Mouse Mover
 - **Real-time monitoring** - Continuously scans your screen for "Light" text
 - **Automatic detection** - Uses EasyOCR for accurate text recognition
 - **Smart movement** - Moves mouse cursor to detected text with smooth animation
 - **Auto-click** - Automatically left-clicks on the target once found
 - **Auto-stop** - Application automatically exits after completing the mission
 - **Performance optimized** - Fast screen capture and processing for real-time operation
+
+### Mob Finder (Advanced)
+- **Configurable Margins** - Ignore screen edges for faster text extraction
+- **Mob Name Detection** - Find multiple mob types from a configurable list
+- **Health Bar Monitoring** - Track target health and auto-switch when needed
+- **Smart Target Selection** - Prioritize mobs by distance and combat status
+- **Continuous Operation** - Run indefinitely with automatic target switching
+- **Performance Optimization** - Cropped screen analysis reduces processing time
+
+### Mob Finder Direct
+- **Direct Text Reading** - No text comparison or complex matching
+- **Pre-defined Margins** - Focuses on red game area automatically
+- **Fast Processing** - Immediate mouse movement to text locations
+- **Simple Targeting** - Finds any mob with text above it
+- **Performance Focused** - Optimized for speed over accuracy
 
 ## Requirements
 
@@ -33,6 +60,28 @@ python mouse_mover.py
 ### Ultra-Fast Version (Maximum Performance)
 ```bash
 python mouse_mover_ultra_fast.py
+```
+
+### Mob Finder (Advanced)
+```bash
+python mob_finder_simple.py
+```
+
+### Mob Finder Direct (Fast & Direct)
+```bash
+python mob_finder_direct.py
+```
+
+### Test Scripts
+```bash
+# Test margin functionality
+python test_margins.py
+
+# Test red area detection
+python test_red_detection.py
+
+# Test direct mob finder
+python test_direct_finder.py
 ```
 
 ## How It Works

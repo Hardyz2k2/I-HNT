@@ -23,11 +23,27 @@ class MobFinder:
         self.monitoring_active = False
         self.previously_selected_mobs = []  # Track previously selected mobs to avoid reselection
         
+        # Screen margin settings for faster text extraction
+        self.margin_top = 100      # Ignore top 100 pixels
+        self.margin_bottom = 100   # Ignore bottom 100 pixels  
+        self.margin_left = 100     # Ignore left 100 pixels
+        self.margin_right = 100    # Ignore right 100 pixels
+        
         # Load mob names
         self.load_mob_names()
         
         # Initialize OCR
         self.init_ocr()
+    
+    def configure_margins(self, top=100, bottom=100, left=100, right=100):
+        """Configure screen margins to ignore edges during text extraction"""
+        self.margin_top = top
+        self.margin_bottom = bottom
+        self.margin_left = left
+        self.margin_right = right
+        print(f"✅ Margins configured: Top={top}, Bottom={bottom}, Left={left}, Right={right}")
+        print(f"📏 Text extraction area: {1920-left-right}x{1080-top-bottom} pixels")
+        print(f"🚀 This should improve performance by ignoring screen edges")
     
     def calculate_similarity(self, text1, text2):
         """Calculate similarity between two strings using SequenceMatcher"""
@@ -130,9 +146,20 @@ class MobFinder:
         print("🔍 Detecting text...")
         
         try:
+            # First, try to auto-detect the red game region
+            if not hasattr(self, '_margins_configured'):
+                self.auto_configure_margins(image)
+                self._margins_configured = True
+            
+            # Crop the image to focus on the game region (ignore margins)
+            cropped_image = image[self.margin_top : self.screen_height - self.margin_bottom,
+                                  self.margin_left : self.screen_width - self.margin_right]
+            
+            print(f"   ✂️ Analyzing cropped game region: {cropped_image.shape[1]}x{cropped_image.shape[0]} pixels")
+            
             # Use EasyOCR to detect text with lower threshold for testing
             results = self.reader.readtext(
-                image,
+                cropped_image,
                 paragraph=False,
                 detail=1,
                 height_ths=0.3,
@@ -140,11 +167,23 @@ class MobFinder:
                 text_threshold=0.3  # Lowered from 0.6 to catch more text
             )
             
+            # Adjust bounding box coordinates back to full screen coordinates
+            adjusted_results = []
+            for bbox, text, confidence in results:
+                # Adjust each point in the bounding box
+                adjusted_bbox = []
+                for point in bbox:
+                    adjusted_x = point[0] + self.margin_left
+                    adjusted_y = point[1] + self.margin_top
+                    adjusted_bbox.append([adjusted_x, adjusted_y])
+                
+                adjusted_results.append((adjusted_bbox, text, confidence))
+            
             detection_time = time.time() - start_time
             print(f"✅ Text detection completed in {detection_time:.3f}s")
-            print(f"📝 Found {len(results)} text elements")
+            print(f"📝 Found {len(adjusted_results)} text elements")
             
-            return results
+            return adjusted_results
             
         except Exception as e:
             print(f"❌ Text detection failed: {e}")
@@ -652,6 +691,73 @@ class MobFinder:
             print(f"\n🔍 Sample detected text (first 5):")
             for i, (bbox, text, conf) in enumerate(ocr_results[:5]):
                 print(f"   {i+1}. '{text}' (confidence: {conf:.2f})")
+
+    def detect_game_region(self, image):
+        """Automatically detect the red game region for optimal text extraction"""
+        try:
+            print("🔍 Detecting red game region automatically...")
+            
+            # Convert to HSV for better red detection
+            hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+            
+            # Define red color range for the game region
+            # Red wraps around in HSV, so we need two ranges
+            lower_red1 = np.array([0, 100, 100])
+            upper_red1 = np.array([10, 255, 255])
+            lower_red2 = np.array([170, 100, 100])
+            upper_red2 = np.array([180, 255, 255])
+            
+            # Create masks for red detection
+            mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+            mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+            red_mask = mask1 + mask2
+            
+            # Find contours in the red mask
+            contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            if contours:
+                # Find the largest red contour (should be the main game area)
+                largest_contour = max(contours, key=cv2.contourArea)
+                x, y, w, h = cv2.boundingRect(largest_contour)
+                
+                # Ensure the detected region is reasonable
+                min_width = image.shape[1] * 0.3  # At least 30% of screen width
+                min_height = image.shape[0] * 0.3  # At least 30% of screen height
+                
+                if w >= min_width and h >= min_height:
+                    # Set margins based on the detected red region
+                    self.margin_left = x
+                    self.margin_top = y
+                    self.margin_right = image.shape[1] - (x + w)
+                    self.margin_bottom = image.shape[0] - (y + h)
+                    
+                    print(f"✅ Red game region detected automatically!")
+                    print(f"📍 Red area bounds: ({x}, {y}) to ({x + w}, {y + h})")
+                    print(f"📏 Game region size: {w}x{h} pixels")
+                    print(f"🚫 Auto-configured margins: Top={self.margin_top}, Bottom={self.margin_bottom}, Left={self.margin_left}, Right={self.margin_right}")
+                    print(f"📊 Text extraction area: {w}x{h} pixels")
+                    
+                    return True
+                else:
+                    print(f"⚠️ Detected red region too small ({w}x{h}), using default margins")
+                    return False
+            else:
+                print("⚠️ No red game region detected, using default margins")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Game region detection failed: {e}")
+            return False
+    
+    def auto_configure_margins(self, image):
+        """Automatically configure margins based on detected red game region"""
+        if self.detect_game_region(image):
+            print("🚀 Margins auto-configured for optimal performance!")
+            return True
+        else:
+            print("🔄 Using default margins (100px all around)")
+            self.configure_margins(100, 100, 100, 100)
+            return False
 
 def main():
     print("🎮 Mob Finder - Advanced Version")
