@@ -26,22 +26,20 @@ class YOLOMobFinder:
         self.keyboard_active = False
         self.stop_requested = False
         
-        # Target persistence tracking
+        # Target persistence tracking (health-based only)
         self.current_target = None
         self.target_selected_time = None
-        self.target_timeout = 6.0  # 6 seconds timeout
         
         # Detection pause system
         self.detection_paused = False
         self.detection_pause_start = None
         self.detection_pause_duration = 6.0  # 6 seconds detection pause when fighting
         
-        # Active hunting mode
-        self.hunting_mode = False
+        # Zone-based hunting system
+        self.hunting_zone_radius = 300  # Smaller focused zone around character
         self.last_mob_seen_time = None
-        self.hunting_delay = 3.0  # Wait 3 seconds before hunting
-        self.hunting_radius = 200  # Radius around character to hunt in
-        self.hunting_click_delay = 0.5  # Delay between hunting clicks
+        self.hunting_delay = 2.0  # Wait 2 seconds before moving
+        self.movement_click_delay = 1.0  # Delay between movement clicks
         
         # Global hotkey controls
         self.paused = False
@@ -74,10 +72,10 @@ class YOLOMobFinder:
         print(f"🔥 GPU Available: {'✅ YES' if self.use_gpu else '❌ NO (CPU mode)'}")
         print(f"🎯 Target FPS: {self.fps_target}")
         print(f"📏 Detection area: {self.screen_width-self.margin_left-self.margin_right}x{self.screen_height-self.margin_top-self.margin_bottom}")
-        print(f"🛡️ Character protection: {self.character_protection_radius} pixel radius")
-        print(f"🎯 Target persistence: {self.target_timeout}s timeout + red health line monitoring")
-        print(f"⏸️ Detection pause: {self.detection_pause_duration}s pause when fighting mobs")
-        print(f"🎯 Active hunting: {self.hunting_radius}px radius when no mobs found")
+        print(f"🛡️ Character protection: {self.character_protection_radius} pixel radius (center: {self.screen_width//2}, {self.screen_height//2})")
+        print(f"🎯 Target persistence: PURE health line monitoring (no timeout)")
+        print(f"⏸️ Mouse lock: Complete mouse freeze when red health detected")
+        print(f"🎯 Hunting zone: {self.hunting_zone_radius}px radius around character (movement-based)")
         print(f"🎮 Global hotkeys: F1=Start/Pause Toggle")
         
     def load_yolo_model(self, model_path="yolov8n.pt"):
@@ -115,12 +113,13 @@ class YOLOMobFinder:
     def detect_health_bar(self):
         """Detect if there's a health bar visible at top center (mob selected) and check for red health line"""
         try:
-            # Health bar area at top center of screen
+            # Health bar area at top center of screen (adjusted for game UI)
+            # Based on the images, health bars appear to be more centered
             health_bar_area = {
-                'top': 40,
-                'left': 700,
-                'width': 520,  # Wide enough to catch health bar
-                'height': 100
+                'top': 20,    # Higher up
+                'left': 600,  # More centered
+                'width': 720, # Wider to catch different positions
+                'height': 80  # Focused height for health bars
             }
             
             # Capture health bar area
@@ -128,28 +127,21 @@ class YOLOMobFinder:
                 health_screenshot = sct.grab(health_bar_area)
             health_img = np.array(health_screenshot)
             
-            # Convert to HSV for better color detection  
-            # Convert BGRA to RGB first, then to HSV
+            # Convert to RGB for processing
             health_rgb = cv2.cvtColor(health_img, cv2.COLOR_BGRA2RGB)
+            
+            # More aggressive red detection for game UI
+            # Convert to HSV for better red detection
             hsv = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2HSV)
             
-            # Check for any health bar presence first (any colored pixels indicating UI)
-            # Look for any non-black pixels that could indicate a health bar UI
-            gray = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2GRAY)
-            health_bar_pixels = cv2.countNonZero(gray > 50)  # Any bright pixels indicating UI
+            # Expanded red color ranges for game UI (more permissive)
+            # First red range (around 0 degrees)
+            lower_red1 = np.array([0, 50, 50])      # Very permissive lower bound
+            upper_red1 = np.array([15, 255, 255])   # Wider hue range
             
-            has_health_bar = health_bar_pixels > 200  # Minimum pixels to consider health bar present
-            
-            if not has_health_bar:
-                return {'has_health_bar': False, 'has_red_health': False}
-            
-            # Health bar detected, now check for red health line specifically
-            # Define red color range for health line
-            # Red wraps around in HSV, so we need two ranges
-            lower_red1 = np.array([0, 120, 120])    # Lower red range
-            upper_red1 = np.array([10, 255, 255])
-            lower_red2 = np.array([170, 120, 120])  # Upper red range
-            upper_red2 = np.array([180, 255, 255])
+            # Second red range (around 180 degrees)  
+            lower_red2 = np.array([165, 50, 50])    # Very permissive lower bound
+            upper_red2 = np.array([180, 255, 255])  # Wider hue range
             
             # Create masks for red detection
             mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
@@ -158,14 +150,30 @@ class YOLOMobFinder:
             
             # Count red pixels (health line presence)
             red_pixel_count = cv2.countNonZero(red_mask)
-            red_health_threshold = 50  # Minimum red pixels to consider red health line present
             
+            # Much lower threshold - even small amount of red means mob is alive
+            red_health_threshold = 10  # Very sensitive - any red pixels indicate health
             has_red_health = red_pixel_count > red_health_threshold
             
+            # Check for health bar UI presence by looking for the dark health bar background
+            gray = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2GRAY)
+            
+            # Look for dark rectangles (health bar backgrounds) and any UI elements
+            dark_pixels = cv2.countNonZero(gray < 100)  # Dark UI elements
+            bright_pixels = cv2.countNonZero(gray > 150) # Bright UI elements (text, borders)
+            
+            # Health bar present if we have UI elements (dark background or bright text/borders)
+            has_health_bar = (dark_pixels > 100) or (bright_pixels > 50) or has_red_health
+            
             if has_health_bar and has_red_health:
-                print(f"   ❤️ Mob selected with red health line ({red_pixel_count} red pixels)")
+                print(f"   ❤️ HEALTH DETECTED: Mob alive with {red_pixel_count} red pixels - PAUSING DETECTION")
             elif has_health_bar and not has_red_health:
-                print(f"   💀 Mob selected but no red health line ({red_pixel_count} red pixels) - mob likely dead")
+                print(f"   💀 HEALTH EMPTY: No red pixels ({red_pixel_count}) - mob dead - RESUMING DETECTION") 
+            elif red_pixel_count > 0:
+                # Any red pixels at all, even if no clear health bar UI
+                print(f"   🩸 RED PIXELS FOUND: {red_pixel_count} red pixels detected - treating as alive")
+                has_health_bar = True
+                has_red_health = True
             
             return {
                 'has_health_bar': has_health_bar,
@@ -178,36 +186,26 @@ class YOLOMobFinder:
             return {'has_health_bar': False, 'has_red_health': False}
     
     def should_switch_target(self):
-        """Determine if we should switch to a new target based on health monitoring and timeout"""
-        if self.current_target is None or self.target_selected_time is None:
-            return True  # No current target, can select new one
-        
-        # Check timeout (6 seconds as backup)
-        elapsed_time = time.time() - self.target_selected_time
-        if elapsed_time >= self.target_timeout:
-            print(f"   ⏰ Target timeout ({elapsed_time:.1f}s) - switching targets")
-            self.clear_detection_pause()  # Clear pause when switching
-            return True
-        
-        # Check health bar status
+        """Determine if we should switch to a new target based on health monitoring ONLY"""
+        # Check health bar status immediately - no timeout needed
         health_status = self.detect_health_bar()
         
         if health_status['has_health_bar']:
             if health_status['has_red_health']:
-                # Mob is selected and has red health line - stay on target AND pause detection
-                print(f"   🎯 Mob alive with red health line - staying on target ({elapsed_time:.1f}s elapsed)")
+                # Mob is selected and has red health line - COMPLETELY STOP all mouse actions
+                print(f"   🛑 MOUSE LOCKED: Red health detected ({health_status['red_pixel_count']} pixels) - NO MOUSE MOVEMENT OR CLICKS")
                 self.start_detection_pause()  # Pause detection to avoid jumping
-                return False
+                return False  # DO NOT switch targets
             else:
-                # Mob is selected but no red health line - mob is dead, switch targets
-                print(f"   ✅ Mob dead (no red health line) - switching targets")
+                # Mob is selected but no red health line - mob is completely dead, resume mouse actions
+                print(f"   ✅ MOUSE UNLOCKED: No red health ({health_status['red_pixel_count']} pixels) - mob dead - resuming mouse actions")
                 self.clear_detection_pause()  # Clear pause when switching
-                return True
+                return True  # Switch targets immediately
         else:
-            # No health bar visible - no mob selected, can switch targets
-            print(f"   👻 No health bar visible - can select new target")
+            # No health bar visible - no mob selected, mouse can act freely
+            print(f"   🆓 MOUSE FREE: No health bar visible - can select new target")
             self.clear_detection_pause()  # Clear pause when no mob selected
-            return True
+            return True  # Can select new targets
     
     def set_current_target(self, target):
         """Set the current target and start tracking time"""
@@ -216,90 +214,82 @@ class YOLOMobFinder:
         self.clear_detection_pause()  # Reset detection pause for new target
     
     def start_detection_pause(self):
-        """Start detection pause when fighting a mob"""
+        """Start detection pause when fighting a mob (health-based only)"""
         if not self.detection_paused:
             self.detection_paused = True
             self.detection_pause_start = time.time()
-            print(f"   ⏸️ Detection paused for {self.detection_pause_duration}s - focusing on current target")
+            print(f"   🛑 COMPLETE MOUSE LOCK - No movement or clicks until red health disappears")
     
     def clear_detection_pause(self):
         """Clear detection pause"""
         if self.detection_paused:
             self.detection_paused = False
             self.detection_pause_start = None
-            print(f"   ▶️ Detection resumed - can look for new targets")
+            print(f"   🆓 MOUSE UNLOCKED - Can move and click again")
     
     def is_detection_paused(self):
-        """Check if detection should be paused"""
-        if not self.detection_paused or self.detection_pause_start is None:
-            return False
-        
-        elapsed_pause = time.time() - self.detection_pause_start
-        if elapsed_pause >= self.detection_pause_duration:
-            print(f"   ⏰ Detection pause timeout ({elapsed_pause:.1f}s) - resuming detection")
-            self.clear_detection_pause()
-            return False
-        
-        return True
+        """Check if detection should be paused (health-based only, no timeout)"""
+        # Only pause if actively fighting (red health detected)
+        return self.detection_paused
         print(f"   🎯 New target locked: {target['screen_position']} (conf: {target['confidence']:.2f})")
     
-    def generate_hunting_position(self):
-        """Generate random position around character for active hunting"""
+    def generate_movement_position(self):
+        """Generate random position within hunting zone for character movement"""
         import random
         import math
         
-        # Character position (screen center)
-        char_x = self.screen_width // 2
-        char_y = self.screen_height // 2
+        # Character position (center of screen)
+        char_x, char_y = self.screen_width // 2, self.screen_height // 2
         
-        # Generate random angle and distance
-        angle = random.uniform(0, 2 * math.pi)
-        distance = random.uniform(50, self.hunting_radius)  # Min 50px, max hunting_radius
+        # Generate random position within hunting zone for movement
+        angle = random.uniform(0, 2 * math.pi)  # 0 to 2π radians
+        # Use smaller distance for movement (stay within zone)
+        distance = random.uniform(100, self.hunting_zone_radius * 0.8)  # 80% of zone radius
         
-        # Calculate hunting position
-        hunt_x = int(char_x + distance * math.cos(angle))
-        hunt_y = int(char_y + distance * math.sin(angle))
+        # Calculate position
+        move_x = int(char_x + distance * math.cos(angle))
+        move_y = int(char_y + distance * math.sin(angle))
         
-        # Keep within screen bounds with margins
-        hunt_x = max(self.margin_left + 50, min(hunt_x, self.screen_width - self.margin_right - 50))
-        hunt_y = max(self.margin_top + 50, min(hunt_y, self.screen_height - self.margin_bottom - 50))
+        # Ensure within screen bounds and zone
+        move_x = max(char_x - self.hunting_zone_radius, min(move_x, char_x + self.hunting_zone_radius))
+        move_y = max(char_y - self.hunting_zone_radius, min(move_y, char_y + self.hunting_zone_radius))
         
-        return (hunt_x, hunt_y)
+        # Final screen boundary check
+        move_x = max(100, min(move_x, self.screen_width - 100))
+        move_y = max(100, min(move_y, self.screen_height - 100))
+        
+        return (move_x, move_y)
     
-    def active_hunting_mode(self):
-        """Click random areas around character to find mobs when none are detected"""
+    def zone_movement_mode(self):
+        """Move character randomly within hunting zone when no mobs detected"""
         if self.last_mob_seen_time is None:
             self.last_mob_seen_time = time.time()
             return
         
-        # Check if we should start hunting (3 second delay)
+        # Check if we should move (2 second delay)
         time_since_last_mob = time.time() - self.last_mob_seen_time
         
         if time_since_last_mob >= self.hunting_delay:
-            if not self.hunting_mode:
-                print(f"\n🎯 ACTIVE HUNTING MODE: No mobs for {time_since_last_mob:.1f}s - searching area!")
-                self.hunting_mode = True
+            # Generate random movement position within zone
+            move_pos = self.generate_movement_position()
             
-            # Generate random hunting position
-            hunt_pos = self.generate_hunting_position()
-            
-            print(f"   🎯 Hunting click at {hunt_pos} (radius: {self.hunting_radius}px)")
+            print(f"🚶 ZONE MOVEMENT: No mobs in zone for {time_since_last_mob:.1f}s - moving to {move_pos}")
             
             try:
-                # Click hunting position
-                pyautogui.click(hunt_pos[0], hunt_pos[1], button='left')
-                time.sleep(self.hunting_click_delay)
+                # Click to move character within zone
+                pyautogui.click(move_pos[0], move_pos[1], button='left')
+                time.sleep(self.movement_click_delay)
                 
+                # Reset timer after movement
+                self.last_mob_seen_time = time.time()
             except Exception as e:
-                print(f"   ❌ Hunting click failed: {e}")
+                print(f"   ❌ Movement click failed: {e}")
         
     def update_mob_detection_status(self, mobs_found):
-        """Update mob detection status for hunting mode"""
+        """Update mob detection status for zone movement"""
         if mobs_found:
-            if self.hunting_mode:
-                print(f"   ✅ Mobs found! Exiting hunting mode")
-                self.hunting_mode = False
-            self.last_mob_seen_time = time.time()  # Reset timer
+            # Mobs found in zone, reset timer
+            self.last_mob_seen_time = time.time()
     
     def setup_global_hotkeys(self):
         """Setup global hotkeys that work even when game window is focused"""
@@ -334,10 +324,12 @@ class YOLOMobFinder:
             # Currently paused - resume
             print("\n▶️ F1 PRESSED - Detection RESUMED!")
             self.paused = False
+            self.keyboard_active = True  # Resume keyboard automation
         else:
             # Currently running - pause
             print("\n⏸️ F1 PRESSED - Detection PAUSED!")
             self.paused = True
+            self.keyboard_active = False  # Pause keyboard automation
     
     
     def cleanup_hotkeys(self):
@@ -503,32 +495,49 @@ class YOLOMobFinder:
                         self.current_target['target_position'] = detection['target_position']
                         return self.current_target
         
-        # Need to select new target
-        best_target = self.select_best_target(detections)
-        if best_target:
-            self.set_current_target(best_target)
+        # Filter to only mobs in hunting zone
+        zone_mobs = self.filter_mobs_in_zone(detections)
         
-        return best_target
+        # Select any target from zone (no complex prioritization)
+        target = self.select_zone_target(zone_mobs)
+        if target:
+            self.set_current_target(target)
         
-    def select_best_target(self, detections):
-        """Select the best target from detections (closest to character)"""
+        return target
+        
+    def filter_mobs_in_zone(self, detections):
+        """Filter detections to only include mobs within hunting zone"""
         if not detections:
-            return None
+            return []
         
-        # Character position
+        # Character position (center of screen)
         char_x, char_y = self.screen_width // 2, self.screen_height // 2
         
-        # Sort by distance to character (closest first)
-        def distance_to_char(detection):
+        zone_mobs = []
+        for detection in detections:
             x, y = detection['screen_position']
-            return ((x - char_x) ** 2 + (y - char_y) ** 2) ** 0.5
+            distance = ((x - char_x) ** 2 + (y - char_y) ** 2) ** 0.5
+            
+            if distance <= self.hunting_zone_radius:
+                zone_mobs.append(detection)
+                print(f"   ✅ Mob IN ZONE: ({x}, {y}) - Distance: {distance:.1f}px")
+            else:
+                print(f"   ❌ Mob OUTSIDE ZONE: ({x}, {y}) - Distance: {distance:.1f}px (ignored)")
         
-        best_target = min(detections, key=distance_to_char)
-        distance = distance_to_char(best_target)
+        return zone_mobs
+    
+    def select_zone_target(self, zone_mobs):
+        """Select any mob within the hunting zone (no prioritization needed)"""
+        if not zone_mobs:
+            return None
         
-        print(f"🎯 Best target: {best_target['screen_position']} (distance: {distance:.1f}px, conf: {best_target['confidence']:.2f})")
+        # Just pick the first mob in the zone - all are close enough
+        target = zone_mobs[0]
+        pos = target['screen_position']
+        conf = target['confidence']
         
-        return best_target
+        print(f"🎯 ZONE TARGET SELECTED: ({pos[0]}, {pos[1]}) - Conf: {conf:.2f}")
+        return target
     
     def click_target(self, target):
         """Click on the selected target"""
@@ -554,19 +563,24 @@ class YOLOMobFinder:
         sequence = "123145"
         
         try:
-            while self.keyboard_active and self.monitoring_active and not self.stop_requested:
-                for key in sequence:
-                    if not self.keyboard_active or not self.monitoring_active or self.stop_requested:
-                        break
+            while self.monitoring_active and not self.stop_requested:
+                # Check if keyboard automation should be active (not paused)
+                if self.keyboard_active and not self.paused:
+                    for key in sequence:
+                        if not self.keyboard_active or self.paused or not self.monitoring_active or self.stop_requested:
+                            break
+                        
+                        try:
+                            pyautogui.press(key)
+                            time.sleep(0.1)
+                        except Exception as e:
+                            print(f"❌ Key press failed: {e}")
                     
-                    try:
-                        pyautogui.press(key)
-                        time.sleep(0.1)
-                    except Exception as e:
-                        print(f"❌ Key press failed: {e}")
-                
-                # Wait between sequences
-                time.sleep(0.4)  # Total cycle = ~1 second
+                    # Wait between sequences
+                    time.sleep(0.4)  # Total cycle = ~1 second
+                else:
+                    # Paused - just wait a bit and check again
+                    time.sleep(0.1)
                 
         except Exception as e:
             print(f"❌ Keyboard automation error: {e}")
@@ -600,7 +614,7 @@ class YOLOMobFinder:
                 
                 # Check if paused
                 if self.paused:
-                    print("⏸️ Detection paused - press F2 to resume or F3 to stop")
+                    print("⏸️ Detection paused - press F1 to resume")
                     time.sleep(1)
                     continue
                 
@@ -628,26 +642,38 @@ class YOLOMobFinder:
                 if detections:
                     print(f"🔍 Found {len(detections)} potential mobs")
                     
-                    # Filter protected areas
+                    # Filter protected areas first
                     safe_detections = self.filter_protected_areas(detections)
                     
                     if safe_detections:
-                        # Update mob detection status
-                        self.update_mob_detection_status(True)
+                        # Filter to only mobs within hunting zone
+                        print(f"🔍 Filtering {len(safe_detections)} safe mobs for hunting zone ({self.hunting_zone_radius}px)")
+                        zone_mobs = self.filter_mobs_in_zone(safe_detections)
                         
-                        # Select target with persistence logic
-                        best_target = self.select_target_with_persistence(safe_detections)
-                        if best_target:
-                            self.click_target(best_target)
+                        if zone_mobs:
+                            # Mobs in zone - select target
+                            print(f"✅ {len(zone_mobs)} mobs in hunting zone")
+                            self.update_mob_detection_status(True)
+                            
+                            # Select target with persistence logic
+                            target = self.select_target_with_persistence(zone_mobs)
+                            if target:
+                                self.click_target(target)
+                        else:
+                            # No mobs in zone - move to find some
+                            print("📍 No mobs in hunting zone - initiating movement")
+                            self.update_mob_detection_status(False)
+                            self.zone_movement_mode()
                     else:
-                        # No safe targets, update status and try hunting (if not disabled)
+                        # No safe targets at all - move around
+                        print("🚫 No safe mobs detected - moving within zone")
                         self.update_mob_detection_status(False)
-                        self.active_hunting_mode()
+                        self.zone_movement_mode()
                 else:
-                    # No detections at all, try hunting
-                    print("🔍 No mobs detected")
+                    # No detections at all - move around
+                    print("🔍 No mobs detected - moving within zone")
                     self.update_mob_detection_status(False)
-                    self.active_hunting_mode()
+                    self.zone_movement_mode()
                 
                 # Calculate and maintain FPS
                 frame_count += 1
