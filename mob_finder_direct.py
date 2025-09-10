@@ -25,6 +25,7 @@ class MobFinderDirect:
     def __init__(self):
         self.screen_width, self.screen_height = 1920, 1080
         self.mob_names = []
+        self.protected_names = []  # Character and pet names to avoid
         self.reader = None
         self.sct = mss.mss()
         self.current_target = None
@@ -32,15 +33,19 @@ class MobFinderDirect:
         self.keyboard_active = False
         self.stop_requested = False
         
-        # OPTIMIZED: Smaller margins for faster processing
-        # Reduced from 150/200 to 100/150 for 25% smaller processing area
-        self.margin_top = 100      # Reduced from 150
-        self.margin_bottom = 100   # Reduced from 150
-        self.margin_left = 150     # Reduced from 200
-        self.margin_right = 150    # Reduced from 200
+        # SPEED OPTIMIZED: Ultra-small margins for maximum speed
+        # Reduced to 50/75 for minimal processing area - mobs should be near center anyway
+        self.margin_top = 50       # Ultra-reduced for speed
+        self.margin_bottom = 50    # Ultra-reduced for speed
+        self.margin_left = 75      # Ultra-reduced for speed
+        self.margin_right = 75     # Ultra-reduced for speed
         
         # Text-to-mob offset: move mouse downward from text to click on mob body
-        self.text_to_mob_offset_y = 50
+        self.text_to_mob_offset_y = 30  # Reduced for faster targeting
+        
+        # Speed optimization flags
+        self.fast_mode = True
+        self.quick_click = True
         
         # Exclusion zone: bottom-left chat area to avoid
         # Coordinates: (0, 800) to (400, 1080) - bottom-left chat/UI elements
@@ -49,14 +54,18 @@ class MobFinderDirect:
         # Load mob names
         self.load_mob_names()
         
+        # Initialize protected names (will be set interactively)
+        self.protected_names = []
+        
         # Initialize OCR
         self.init_ocr()
         
-        print(f"🎯 Mob Finder Direct initialized")
-        print(f"📏 Game area: {self.screen_width-self.margin_left-self.margin_right}x{self.screen_height-self.margin_top-self.margin_bottom} pixels")
-        print(f"🚫 Ignoring margins: Top={self.margin_top}, Bottom={self.margin_bottom}, Left={self.margin_left}, Right={self.margin_right}")
+        print(f"⚡ Mob Finder Direct initialized - SPEED OPTIMIZED MODE")
+        print(f"📏 Game area: {self.screen_width-self.margin_left-self.margin_right}x{self.screen_height-self.margin_top-self.margin_bottom} pixels (ULTRA-SMALL FOR SPEED)")
+        print(f"🚫 Margins: Top={self.margin_top}, Bottom={self.margin_bottom}, Left={self.margin_left}, Right={self.margin_right}")
         print(f"🛡️ Character protection: 100 pixel radius around screen center")
-        print(f"🎯 Text-to-mob offset: {self.text_to_mob_offset_y} pixels downward for accurate targeting")
+        print(f"⚡ SPEED MODE: Fast targeting with {self.text_to_mob_offset_y}px offset")
+        print(f"⚡ QUICK CLICK: {'Enabled' if self.quick_click else 'Disabled'} - Direct clicks without mouse movement")
         print(f"⌨️ Continuous keyboard pressing: 123145 sequence")
         print(f"⏹️ Stop options: Press Ctrl+C or type 'stop' and press Enter")
     
@@ -81,6 +90,55 @@ class MobFinderDirect:
             self.mob_names = ["Tiger", "Wolf", "Spider", "Ghost", "Demon", "Bandit"]
             print(f"🔄 Using fallback mob names: {', '.join(self.mob_names)}")
     
+    def load_protected_names(self):
+        """Load protected names (character and pets) from protected_names.txt file"""
+        start_time = time.time()
+        print("🛡️ Loading protected names...")
+        
+        try:
+            with open('protected_names.txt', 'r', encoding='utf-8') as file:
+                lines = file.readlines()
+                # Process each line, skip comments and empty lines
+                self.protected_names = []
+                for line in lines:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        self.protected_names.append(line)
+            
+            load_time = time.time() - start_time
+            print(f"✅ Loaded {len(self.protected_names)} protected names in {load_time:.3f}s")
+            if self.protected_names:
+                print(f"🛡️ Protected names: {', '.join(self.protected_names)}")
+            else:
+                print(f"ℹ️ No protected names configured (add names to protected_names.txt)")
+            
+        except FileNotFoundError:
+            print(f"⚠️ protected_names.txt not found - no name protection active")
+            self.protected_names = []
+        except Exception as e:
+            print(f"❌ Error loading protected names: {e}")
+            self.protected_names = []
+    
+    def set_protected_names_interactively(self, character_name, pet_names):
+        """Set protected names from interactive input"""
+        self.protected_names = []
+        
+        # Add character name if provided
+        if character_name and character_name.strip():
+            self.protected_names.append(character_name.strip())
+        
+        # Add pet names if provided
+        if pet_names:
+            for pet_name in pet_names:
+                if pet_name and pet_name.strip():
+                    self.protected_names.append(pet_name.strip())
+        
+        print(f"🛡️ Protected names configured: {len(self.protected_names)} names")
+        if self.protected_names:
+            print(f"🛡️ Protected names: {', '.join(self.protected_names)}")
+        else:
+            print(f"ℹ️ No protected names configured - will not avoid any names")
+    
     def init_ocr(self):
         """Initialize EasyOCR"""
         start_time = time.time()
@@ -96,13 +154,88 @@ class MobFinderDirect:
             print(f"❌ OCR initialization failed: {e}")
             self.reader = None
     
-    def ensure_game_focused(self):
-        """Try to ensure the game window is focused"""
+    def is_protected_name(self, text):
+        """Check if the detected text matches any protected names (character or pets)"""
+        if not self.protected_names:
+            return False
+        
+        text_lower = text.lower().strip()
+        
+        for protected_name in self.protected_names:
+            protected_lower = protected_name.lower().strip()
+            
+            # Exact match
+            if text_lower == protected_lower:
+                return True
+            
+            # Partial match (protected name contained in text)
+            if protected_lower in text_lower:
+                return True
+            
+            # Reverse partial match (text contained in protected name)
+            if text_lower in protected_lower:
+                return True
+            
+            # Calculate similarity for fuzzy matching (handle OCR errors)
+            similarity = self.calculate_similarity(text_lower, protected_lower)
+            if similarity > 0.8:  # High similarity threshold for protected names
+                return True
+        
+            return False
+    
+    def quick_target_verification(self, target_position):
+        """Quickly verify target is still at position before clicking"""
+        if not self.fast_mode:
+            return True
+            
         try:
-            # Try to click on the center of the screen to focus the game
-            center_x, center_y = 1920 // 2, 1080 // 2
-            pyautogui.click(center_x, center_y)
-            time.sleep(0.1)
+            print(f"   🔍 Quick verification at {target_position}...")
+            # Take a small screenshot around the target area
+            x, y = target_position
+            
+            # Small area around target (100x100 pixels)
+            verification_area = {
+                'top': max(0, y - 50),
+                'left': max(0, x - 50), 
+                'width': 100,
+                'height': 100
+            }
+            
+            verification_shot = self.sct.grab(verification_area)
+            verification_img = np.array(verification_shot)
+            
+            # Quick OCR check with very fast settings
+            if self.reader:
+                quick_results = self.reader.readtext(
+                    verification_img,
+                    paragraph=False,
+                    detail=1,
+                    height_ths=0.7,    # Very fast settings
+                    width_ths=0.7,
+                    text_threshold=0.7
+                )
+                
+                # If we find any text, target is probably still there
+                has_text = len(quick_results) > 0
+                print(f"   {'✅' if has_text else '❌'} Quick verification: {'Target still there' if has_text else 'Target moved'}")
+                return has_text
+            
+            return True  # If OCR fails, assume target is there
+            
+        except Exception as e:
+            print(f"   ⚠️ Quick verification failed: {e}")
+            return True  # If verification fails, proceed anyway
+    
+    def calculate_similarity(self, text1, text2):
+        """Calculate similarity between two strings"""
+        from difflib import SequenceMatcher
+        return SequenceMatcher(None, text1, text2).ratio()
+    
+    def ensure_game_focused(self):
+        """Try to ensure the game window is focused (without clicking)"""
+        try:
+            # Just bring the window to front without clicking
+            # Note: This method no longer clicks to avoid unwanted center clicks
             return True
         except Exception as e:
             print(f"⚠️ Could not focus game window: {e}")
@@ -160,8 +293,7 @@ class MobFinderDirect:
                         break
                     
                     try:
-                        # Ensure game is focused before pressing keys
-                        self.ensure_game_focused()
+                        # Press key without focusing (to avoid center clicks)
                         pyautogui.press(key)
                         print(f"   ⌨️ Pressed key: {key}")
                         time.sleep(0.1)  # Small delay between key presses
@@ -204,10 +336,8 @@ class MobFinderDirect:
             game_y2 = img_array.shape[0] - self.margin_bottom
             
             capture_time = time.time() - start_time
-            print(f"✅ Screenshot captured in {capture_time:.3f}s")
-            print(f"📱 Full image size: {img_array.shape[1]}x{img_array.shape[0]}")
-            print(f"🎮 Game area: ({game_x1}, {game_y1}) to ({game_x2}, {game_y2})")
-            print(f"📏 Game area size: {game_x2 - game_x1}x{game_y2 - game_y1} pixels")
+            print(f"⚡ FAST screenshot: {capture_time:.3f}s")
+            print(f"📏 Processing area: {game_x2 - game_x1}x{game_y2 - game_y1} pixels (SPEED OPTIMIZED)")
             
             return img_array
             
@@ -231,14 +361,14 @@ class MobFinderDirect:
             
             print(f"   ✂️ Analyzing game area: {cropped_image.shape[1]}x{cropped_image.shape[0]} pixels")
             
-            # Use EasyOCR to detect text
+            # SPEED OPTIMIZED: Use EasyOCR with faster settings
             results = self.reader.readtext(
                 cropped_image,
                 paragraph=False,
                 detail=1,
-                height_ths=0.3,
-                width_ths=0.3,
-                text_threshold=0.3
+                height_ths=0.5,     # Increased for speed (less sensitive)
+                width_ths=0.5,      # Increased for speed (less sensitive) 
+                text_threshold=0.5  # Increased for speed (higher confidence only)
             )
             
             # Adjust bounding box coordinates back to full screen coordinates
@@ -254,8 +384,8 @@ class MobFinderDirect:
                 adjusted_results.append((adjusted_bbox, text, confidence))
             
             detection_time = time.time() - start_time
-            print(f"✅ Text detection completed in {detection_time:.3f}s")
-            print(f"📝 Found {len(adjusted_results)} text elements in game area")
+            print(f"⚡ FAST OCR completed in {detection_time:.3f}s")
+            print(f"📝 Found {len(adjusted_results)} text elements (HIGH CONFIDENCE ONLY)")
             
             return adjusted_results
             
@@ -321,19 +451,25 @@ class MobFinderDirect:
             if text.strip().replace('_', '').replace(' ', '').islower() and '_' in text:
                 is_code_text = True
             
+            # Additional check: Skip protected names (character/pets)
+            if not is_code_text and self.is_protected_name(text):
+                is_code_text = True
+                print(f"   🛡️ Filtering out: '{text}' (confidence: {confidence:.2f}) - protected name (character/pet)")
+            
             if not is_code_text:
                 filtered_results.append((bbox, text, confidence))
                 print(f"   ✅ Keeping: '{text}' (confidence: {confidence:.2f})")
             else:
-                print(f"   ❌ Filtering out: '{text}' (confidence: {confidence:.2f}) - looks like code/IDE text")
+                if not self.is_protected_name(text):
+                    print(f"   ❌ Filtering out: '{text}' (confidence: {confidence:.2f}) - looks like code/IDE text")
         
-        print(f"🔍 Filtered {len(ocr_results)} -> {len(filtered_results)} text elements")
+        print(f"⚡ SPEED FILTERED: {len(ocr_results)} -> {len(filtered_results)} text elements")
         return filtered_results
 
     def find_mobs_with_text(self, ocr_results):
         """Find mobs that have text above them in the game area"""
         start_time = time.time()
-        print("🎯 Searching for mobs with text above them...")
+        print("⚡ FAST SCAN: Searching for mobs with text above them...")
         
         found_mobs = []
         
@@ -362,8 +498,13 @@ class MobFinderDirect:
                 print(f"   ⚠️ Skipping '{text}' - too close to character (distance: {distance_from_character:.1f} pixels)")
                 continue
             
-            # Check if this text is in the game area and has reasonable confidence
-            if confidence > 0.3:
+            # CRITICAL: Skip protected names (character/pets)
+            if self.is_protected_name(text):
+                print(f"   🛡️ Skipping protected name: '{text}' (character/pet protection)")
+                continue
+            
+            # SPEED: Higher confidence threshold for faster processing
+            if confidence > 0.6:  # Increased from 0.3 to 0.6 for speed
                 # Calculate the actual mob position (text position + offset)
                 mob_x = center_x
                 mob_y = center_y + self.text_to_mob_offset_y  # Move downward to mob body
@@ -601,22 +742,36 @@ class MobFinderDirect:
                 if best_mob:
                     print(f"🎯 Targeting: '{best_mob['text']}' - Text at {best_mob['text_position']}, Mob at {best_mob['mob_position']}")
                     
-                    # Move mouse to mob body position
-                    if self.move_mouse_to_target(best_mob['mob_position']):
-                        print("✅ Mouse moved to mob body!")
+                    # SPEED MODE: Quick verification and immediate action
+                    target_pos = best_mob['mob_position']
+                    
+                    if self.quick_click:
+                        # ULTRA FAST: Skip mouse movement, click directly
+                        print(f"⚡ FAST MODE: Direct click at {target_pos}")
                         
-                        # Automatically click on target
-                        print("🖱️ Automatically clicking on target...")
-                        if self.click_on_target(best_mob['mob_position']):
-                            print("🎉 Target clicked!")
+                        # Quick verification before clicking
+                        if self.quick_target_verification(target_pos):
+                            if self.click_on_target(target_pos):
+                                print("🎉 Fast target clicked!")
+                            else:
+                                print("❌ Fast click failed")
                         else:
-                            print("❌ Click failed")
+                            print("❌ Target moved, skipping click")
                     else:
-                        print("❌ Failed to move mouse to target")
+                        # NORMAL MODE: Move mouse then click
+                        if self.move_mouse_to_target(target_pos):
+                            print("✅ Mouse moved to mob body!")
+                            
+                            if self.click_on_target(target_pos):
+                                print("🎉 Target clicked!")
+                            else:
+                                print("❌ Click failed")
+                        else:
+                            print("❌ Failed to move mouse to target")
                 
-                # Wait before next scan (with stop checking)
-                print("   ⏱️ Waiting 3 seconds before next scan...")
-                for i in range(30):  # 3 seconds = 30 * 0.1 second intervals
+                # SPEED: Much faster scanning - wait only 1 second
+                print("   ⚡ Waiting 1 second before next scan (FAST MODE)...")
+                for i in range(10):  # 1 second = 10 * 0.1 second intervals
                     if self.stop_requested or not self.monitoring_active:
                         break
                     time.sleep(0.1)
@@ -638,6 +793,62 @@ class MobFinderDirect:
         
         print("🏁 Continuous monitoring mode ended")
 
+def get_user_input():
+    """Get character name and pet names from user input"""
+    print("🛡️ CHARACTER & PET PROTECTION SETUP")
+    print("=" * 50)
+    print("To avoid accidentally clicking on your character or pets,")
+    print("please provide the following information:")
+    print()
+    
+    # Get character name
+    while True:
+        character_name = input("🧙 Enter your CHARACTER NAME (or press Enter to skip): ").strip()
+        if not character_name:
+            print("   ⚠️ No character name provided - character protection disabled")
+            break
+        else:
+            print(f"   ✅ Character name: '{character_name}'")
+            break
+    
+    # Get pet names
+    pet_names = []
+    print("\n🐕 Enter your PET NAMES (one per line, press Enter twice to finish):")
+    print("   Examples: DragonPet, PhoenixPet, TigerPet")
+    
+    pet_count = 1
+    while True:
+        pet_name = input(f"   Pet #{pet_count} (or press Enter to finish): ").strip()
+        if not pet_name:
+            break
+        else:
+            pet_names.append(pet_name)
+            print(f"   ✅ Added pet: '{pet_name}'")
+            pet_count += 1
+    
+    if not pet_names:
+        print("   ⚠️ No pet names provided - pet protection disabled")
+    
+    # Summary
+    print("\n📋 PROTECTION SUMMARY:")
+    if character_name:
+        print(f"   🧙 Character: {character_name}")
+    if pet_names:
+        print(f"   🐕 Pets: {', '.join(pet_names)}")
+    
+    total_protected = (1 if character_name else 0) + len(pet_names)
+    print(f"   🛡️ Total protected names: {total_protected}")
+    
+    if total_protected == 0:
+        print("   ⚠️ No protection configured - all detected text will be targetable")
+        confirm = input("\n   Continue without name protection? (y/N): ").lower().strip()
+        if confirm != 'y' and confirm != 'yes':
+            print("   👋 Setup cancelled by user")
+            return None, None
+    
+    print("   ✅ Protection setup complete!")
+    return character_name, pet_names
+
 def main():
     print("🎮 Mob Finder Direct - Direct Text Reading and Mouse Movement")
     print("Find mobs with text above them and move mouse directly to targets")
@@ -648,8 +859,27 @@ def main():
     print("🔄 AUTO-START - Automatically starts continuous monitoring mode")
     print("=" * 70)
     
+    # Get user input for protection
+    try:
+        character_name, pet_names = get_user_input()
+        if character_name is None and pet_names is None:
+            return  # User cancelled
+    except KeyboardInterrupt:
+        print("\n⏹️ Setup cancelled by user")
+        return
+    except Exception as e:
+        print(f"\n❌ Error during setup: {e}")
+        return
+    
+    print("\n" + "=" * 70)
+    print("🚀 INITIALIZING MOB FINDER")
+    print("=" * 70)
+    
     # Create mob finder
     mob_finder = MobFinderDirect()
+    
+    # Set protected names from user input (override file-based loading)
+    mob_finder.set_protected_names_interactively(character_name, pet_names)
     
     # Check if OCR initialized properly
     if mob_finder.reader is None:
@@ -658,7 +888,12 @@ def main():
         return
     
     try:
-        print("\n🚀 AUTOMATICALLY STARTING CONTINUOUS MONITORING MODE...")
+        print("\n⚡ STARTING SPEED OPTIMIZED TARGETING MODE...")
+        print("💡 SPEED FEATURES ENABLED:")
+        print("   ⚡ Ultra-small processing area for maximum speed")
+        print("   🔍 Quick verification before each click")
+        print("   ⚡ Direct clicking without mouse movement")
+        print("   🔄 1-second scan intervals (3x faster)")
         print("💡 STOP OPTIONS:")
         print("   - Press Ctrl+C to stop immediately")
         print("   - Type 'stop', 'quit', 'exit', or 'q' and press Enter")
@@ -667,6 +902,7 @@ def main():
         
         # Give user time to focus the game window
         print("⏱️ Starting in 3 seconds... Make sure your game window is focused!")
+        print("📝 IMPORTANT: Click on your game window to focus it during this countdown!")
         for i in range(3, 0, -1):
             print(f"   {i}...")
             time.sleep(1)

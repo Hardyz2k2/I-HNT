@@ -1,0 +1,16 @@
+# Protected Names Configuration
+# Add character name and pet names here to avoid clicking on them
+# Format: One name per line, comments start with #
+# Example:
+# YourCharacterName
+# PetName1
+# PetName2
+
+# Add your character name here:
+# MyCharacter
+
+# Add your pet names here:
+# Pet1
+# Pet2
+# Pet3
+
