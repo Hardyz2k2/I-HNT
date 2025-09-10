@@ -31,6 +31,11 @@ class YOLOMobFinder:
         self.target_selected_time = None
         self.target_timeout = 6.0  # 6 seconds timeout
         
+        # Detection pause system
+        self.detection_paused = False
+        self.detection_pause_start = None
+        self.detection_pause_duration = 6.0  # 6 seconds detection pause when fighting
+        
         # Active hunting mode
         self.hunting_mode = False
         self.last_mob_seen_time = None
@@ -70,7 +75,8 @@ class YOLOMobFinder:
         print(f"🎯 Target FPS: {self.fps_target}")
         print(f"📏 Detection area: {self.screen_width-self.margin_left-self.margin_right}x{self.screen_height-self.margin_top-self.margin_bottom}")
         print(f"🛡️ Character protection: {self.character_protection_radius} pixel radius")
-        print(f"🎯 Target persistence: {self.target_timeout}s timeout (no health monitoring)")
+        print(f"🎯 Target persistence: {self.target_timeout}s timeout + red health line monitoring")
+        print(f"⏸️ Detection pause: {self.detection_pause_duration}s pause when fighting mobs")
         print(f"🎯 Active hunting: {self.hunting_radius}px radius when no mobs found")
         print(f"🎮 Global hotkeys: F1=Start/Pause Toggle")
         
@@ -106,26 +112,135 @@ class YOLOMobFinder:
             print("💡 Install requirements: pip install ultralytics torch")
             return False
     
+    def detect_health_bar(self):
+        """Detect if there's a health bar visible at top center (mob selected) and check for red health line"""
+        try:
+            # Health bar area at top center of screen
+            health_bar_area = {
+                'top': 40,
+                'left': 700,
+                'width': 520,  # Wide enough to catch health bar
+                'height': 100
+            }
+            
+            # Capture health bar area
+            with mss.mss() as sct:
+                health_screenshot = sct.grab(health_bar_area)
+            health_img = np.array(health_screenshot)
+            
+            # Convert to HSV for better color detection  
+            # Convert BGRA to RGB first, then to HSV
+            health_rgb = cv2.cvtColor(health_img, cv2.COLOR_BGRA2RGB)
+            hsv = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2HSV)
+            
+            # Check for any health bar presence first (any colored pixels indicating UI)
+            # Look for any non-black pixels that could indicate a health bar UI
+            gray = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2GRAY)
+            health_bar_pixels = cv2.countNonZero(gray > 50)  # Any bright pixels indicating UI
+            
+            has_health_bar = health_bar_pixels > 200  # Minimum pixels to consider health bar present
+            
+            if not has_health_bar:
+                return {'has_health_bar': False, 'has_red_health': False}
+            
+            # Health bar detected, now check for red health line specifically
+            # Define red color range for health line
+            # Red wraps around in HSV, so we need two ranges
+            lower_red1 = np.array([0, 120, 120])    # Lower red range
+            upper_red1 = np.array([10, 255, 255])
+            lower_red2 = np.array([170, 120, 120])  # Upper red range
+            upper_red2 = np.array([180, 255, 255])
+            
+            # Create masks for red detection
+            mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+            mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+            red_mask = mask1 + mask2
+            
+            # Count red pixels (health line presence)
+            red_pixel_count = cv2.countNonZero(red_mask)
+            red_health_threshold = 50  # Minimum red pixels to consider red health line present
+            
+            has_red_health = red_pixel_count > red_health_threshold
+            
+            if has_health_bar and has_red_health:
+                print(f"   ❤️ Mob selected with red health line ({red_pixel_count} red pixels)")
+            elif has_health_bar and not has_red_health:
+                print(f"   💀 Mob selected but no red health line ({red_pixel_count} red pixels) - mob likely dead")
+            
+            return {
+                'has_health_bar': has_health_bar,
+                'has_red_health': has_red_health,
+                'red_pixel_count': red_pixel_count
+            }
+            
+        except Exception as e:
+            print(f"   ⚠️ Health bar detection error: {e}")
+            return {'has_health_bar': False, 'has_red_health': False}
     
     def should_switch_target(self):
-        """Determine if we should switch to a new target based on timeout only"""
+        """Determine if we should switch to a new target based on health monitoring and timeout"""
         if self.current_target is None or self.target_selected_time is None:
             return True  # No current target, can select new one
         
-        # Check timeout (6 seconds)
+        # Check timeout (6 seconds as backup)
         elapsed_time = time.time() - self.target_selected_time
         if elapsed_time >= self.target_timeout:
             print(f"   ⏰ Target timeout ({elapsed_time:.1f}s) - switching targets")
+            self.clear_detection_pause()  # Clear pause when switching
             return True
         
-        # Target still within timeout
-        print(f"   🎯 Staying on current target ({elapsed_time:.1f}s elapsed)")
-        return False
+        # Check health bar status
+        health_status = self.detect_health_bar()
+        
+        if health_status['has_health_bar']:
+            if health_status['has_red_health']:
+                # Mob is selected and has red health line - stay on target AND pause detection
+                print(f"   🎯 Mob alive with red health line - staying on target ({elapsed_time:.1f}s elapsed)")
+                self.start_detection_pause()  # Pause detection to avoid jumping
+                return False
+            else:
+                # Mob is selected but no red health line - mob is dead, switch targets
+                print(f"   ✅ Mob dead (no red health line) - switching targets")
+                self.clear_detection_pause()  # Clear pause when switching
+                return True
+        else:
+            # No health bar visible - no mob selected, can switch targets
+            print(f"   👻 No health bar visible - can select new target")
+            self.clear_detection_pause()  # Clear pause when no mob selected
+            return True
     
     def set_current_target(self, target):
         """Set the current target and start tracking time"""
         self.current_target = target
         self.target_selected_time = time.time()
+        self.clear_detection_pause()  # Reset detection pause for new target
+    
+    def start_detection_pause(self):
+        """Start detection pause when fighting a mob"""
+        if not self.detection_paused:
+            self.detection_paused = True
+            self.detection_pause_start = time.time()
+            print(f"   ⏸️ Detection paused for {self.detection_pause_duration}s - focusing on current target")
+    
+    def clear_detection_pause(self):
+        """Clear detection pause"""
+        if self.detection_paused:
+            self.detection_paused = False
+            self.detection_pause_start = None
+            print(f"   ▶️ Detection resumed - can look for new targets")
+    
+    def is_detection_paused(self):
+        """Check if detection should be paused"""
+        if not self.detection_paused or self.detection_pause_start is None:
+            return False
+        
+        elapsed_pause = time.time() - self.detection_pause_start
+        if elapsed_pause >= self.detection_pause_duration:
+            print(f"   ⏰ Detection pause timeout ({elapsed_pause:.1f}s) - resuming detection")
+            self.clear_detection_pause()
+            return False
+        
+        return True
         print(f"   🎯 New target locked: {target['screen_position']} (conf: {target['confidence']:.2f})")
     
     def generate_hunting_position(self):
@@ -489,13 +604,25 @@ class YOLOMobFinder:
                     time.sleep(1)
                     continue
                 
+                # Check if detection is paused (when fighting a mob with red health)
+                if self.is_detection_paused():
+                    # During pause, only check if we should switch targets (health monitoring)
+                    if self.current_target is not None and self.should_switch_target():
+                        # Target died or timed out, clear pause and continue detection
+                        print("   📋 Target lost during pause - resuming full detection")
+                        self.clear_detection_pause()
+                    else:
+                        # Still fighting current target, skip detection this frame
+                        time.sleep(0.1)
+                        continue
+                
                 # Capture game area
                 frame, game_area = self.capture_game_area()
                 if frame is None:
                     time.sleep(0.1)
                     continue
                 
-                # YOLO detection
+                # YOLO detection (only when not paused)
                 detections = self.detect_mobs_yolo(frame)
                 
                 if detections:
