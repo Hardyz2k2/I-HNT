@@ -30,16 +30,21 @@ class MobFinderDirect:
         self.current_target = None
         self.monitoring_active = False
         self.keyboard_active = False
+        self.stop_requested = False
         
-        # Pre-defined margins for the red area (based on your screenshot)
-        # These margins define the game area where mobs are located
-        self.margin_top = 150      # Below top UI panels
-        self.margin_bottom = 150   # Above bottom UI panels
-        self.margin_left = 200     # Left of game area
-        self.margin_right = 200    # Right of game area
+        # OPTIMIZED: Smaller margins for faster processing
+        # Reduced from 150/200 to 100/150 for 25% smaller processing area
+        self.margin_top = 100      # Reduced from 150
+        self.margin_bottom = 100   # Reduced from 150
+        self.margin_left = 150     # Reduced from 200
+        self.margin_right = 150    # Reduced from 200
         
         # Text-to-mob offset: move mouse downward from text to click on mob body
-        self.text_to_mob_offset_y = 50  # pixels downward from text center to mob body
+        self.text_to_mob_offset_y = 50
+        
+        # Exclusion zone: bottom-left chat area to avoid
+        # Coordinates: (0, 800) to (400, 1080) - bottom-left chat/UI elements
+        self.exclusion_zone = {'x1': 0, 'y1': 800, 'x2': 400, 'y2': 1080}  # pixels downward from text center to mob body
         
         # Load mob names
         self.load_mob_names()
@@ -53,6 +58,7 @@ class MobFinderDirect:
         print(f"🛡️ Character protection: 100 pixel radius around screen center")
         print(f"🎯 Text-to-mob offset: {self.text_to_mob_offset_y} pixels downward for accurate targeting")
         print(f"⌨️ Continuous keyboard pressing: 123145 sequence")
+        print(f"⏹️ Stop options: Press Ctrl+C or type 'stop' and press Enter")
     
     def load_mob_names(self):
         """Load mob names from mobs.txt file"""
@@ -90,6 +96,56 @@ class MobFinderDirect:
             print(f"❌ OCR initialization failed: {e}")
             self.reader = None
     
+    def ensure_game_focused(self):
+        """Try to ensure the game window is focused"""
+        try:
+            # Try to click on the center of the screen to focus the game
+            center_x, center_y = 1920 // 2, 1080 // 2
+            pyautogui.click(center_x, center_y)
+            time.sleep(0.1)
+            return True
+        except Exception as e:
+            print(f"⚠️ Could not focus game window: {e}")
+            return False
+
+    def stop_monitoring(self):
+        """Stop the monitoring and keyboard automation"""
+        print("\n⏹️ Stop requested by user")
+        self.stop_requested = True
+        self.monitoring_active = False
+        self.keyboard_active = False
+        print("🛑 Stopping all operations...")
+
+    def check_stop_input(self):
+        """Check if user wants to stop (non-blocking)"""
+        try:
+            import msvcrt
+            import sys
+            
+            # Windows-specific non-blocking input check
+            if msvcrt.kbhit():
+                key = msvcrt.getch()
+                if key == b'\r':  # Enter key
+                    # Read the line that was typed
+                    try:
+                        line = input().strip().lower()
+                        if line in ['stop', 'quit', 'exit', 'q']:
+                            return True
+                    except:
+                        pass
+        except:
+            # Fallback for non-Windows or if msvcrt not available
+            try:
+                import select
+                import sys
+                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    line = sys.stdin.readline()
+                    if line.strip().lower() in ['stop', 'quit', 'exit', 'q']:
+                        return True
+            except:
+                pass
+        return False
+
     def continuous_keyboard_pressing(self):
         """Continuously press keyboard buttons 123145 in a loop"""
         print("⌨️ Starting continuous keyboard pressing: 123145 sequence")
@@ -98,12 +154,14 @@ class MobFinderDirect:
         sequence_count = 0
         
         try:
-            while self.keyboard_active and self.monitoring_active:
+            while self.keyboard_active and self.monitoring_active and not self.stop_requested:
                 for key in sequence:
-                    if not self.keyboard_active or not self.monitoring_active:
+                    if not self.keyboard_active or not self.monitoring_active or self.stop_requested:
                         break
                     
                     try:
+                        # Ensure game is focused before pressing keys
+                        self.ensure_game_focused()
                         pyautogui.press(key)
                         print(f"   ⌨️ Pressed key: {key}")
                         time.sleep(0.1)  # Small delay between key presses
@@ -111,8 +169,14 @@ class MobFinderDirect:
                         print(f"   ❌ Key press failed for '{key}': {e}")
                 
                 sequence_count += 1
-                print(f"   🔄 Completed sequence #{sequence_count}: {sequence}")
-                time.sleep(0.5)  # Wait before repeating sequence
+                if sequence_count % 10 == 0:  # Only print every 10 sequences to reduce spam
+                    print(f"   🔄 Completed {sequence_count} sequences: {sequence}")
+                
+                # Check for stop during wait
+                for i in range(5):  # 0.5 seconds = 5 * 0.1 second intervals
+                    if self.stop_requested or not self.keyboard_active or not self.monitoring_active:
+                        break
+                    time.sleep(0.1)
                 
         except Exception as e:
             print(f"❌ Keyboard pressing error: {e}")
@@ -199,6 +263,73 @@ class MobFinderDirect:
             print(f"❌ Text detection failed: {e}")
             return []
     
+    def filter_game_text(self, ocr_results):
+        """Filter out text that looks like code/IDE text and keep only game text"""
+        print("🔍 Filtering out IDE/code text...")
+        
+        # Common code/IDE text patterns to filter out
+        code_patterns = [
+            'def ', 'class ', 'import ', 'from ', 'if ', 'elif ', 'else:', 'for ', 'while ',
+            'return ', 'print(', 'print ', 'self.', 'try:', 'except:', 'finally:',
+            'Pressed', 'key:', 'confidence:', 'distance', 'status', 'Range', 'Combat',
+            'f"', 'f\'', '{}', '[]', '()', '==', '!=', '<=', '>=', '+=', '-=',
+            'True', 'False', 'None', 'and', 'or', 'not', 'in ', 'is ', 'with ',
+            'time.', 'pyautogui.', 'cv2.', 'np.', 'threading.', 'mss.',
+            'screen_width', 'screen_height', 'margin_', 'bbox', 'center_',
+            'mob_', 'text_', 'position', 'confidence', 'distance', 'character',
+            'round_count', 'monitoring_active', 'keyboard_active', 'reader',
+            'sct', 'current_target', 'mob_names', 'exclusion_zone'
+        ]
+        
+        # Common single characters that are likely code
+        single_chars = ['{', '}', '[', ']', '(', ')', '=', '+', '-', '*', '/', '%', '&', '|', '^', '~', '<', '>', '!', '?', ':', ';', ',', '.', '\'', '"', '`']
+        
+        # Common numbers that are likely line numbers or code
+        line_numbers = [str(i) for i in range(1, 1000)]  # Line numbers 1-999
+        
+        filtered_results = []
+        
+        for bbox, text, confidence in ocr_results:
+            # Skip very short text (likely noise)
+            if len(text.strip()) < 2:
+                continue
+            
+            # Skip text that contains code patterns
+            text_lower = text.lower().strip()
+            is_code_text = False
+            
+            for pattern in code_patterns:
+                if pattern.lower() in text_lower:
+                    is_code_text = True
+                    break
+            
+            # Skip single characters
+            if len(text.strip()) == 1 and text.strip() in single_chars:
+                is_code_text = True
+            
+            # Skip line numbers
+            if text.strip() in line_numbers:
+                is_code_text = True
+            
+            # Skip text that's mostly numbers and symbols
+            if len(text.strip()) > 0:
+                non_alpha_chars = sum(1 for c in text if not c.isalnum() and not c.isspace())
+                if non_alpha_chars > len(text.strip()) * 0.7:  # More than 70% non-alphanumeric
+                    is_code_text = True
+            
+            # Skip text that looks like variable names (starts with lowercase, contains underscores)
+            if text.strip().replace('_', '').replace(' ', '').islower() and '_' in text:
+                is_code_text = True
+            
+            if not is_code_text:
+                filtered_results.append((bbox, text, confidence))
+                print(f"   ✅ Keeping: '{text}' (confidence: {confidence:.2f})")
+            else:
+                print(f"   ❌ Filtering out: '{text}' (confidence: {confidence:.2f}) - looks like code/IDE text")
+        
+        print(f"🔍 Filtered {len(ocr_results)} -> {len(filtered_results)} text elements")
+        return filtered_results
+
     def find_mobs_with_text(self, ocr_results):
         """Find mobs that have text above them in the game area"""
         start_time = time.time()
@@ -426,10 +557,16 @@ class MobFinderDirect:
         print("⌨️ Keyboard pressing thread started")
         
         try:
-            while self.monitoring_active:
+            while self.monitoring_active and not self.stop_requested:
                 round_count += 1
                 print(f"\n🔄 ROUND {round_count} - Scanning for mobs with text...")
                 print("-" * 40)
+                print("💡 Type 'stop' and press Enter to stop, or press Ctrl+C")
+                
+                # Check for stop input
+                if self.check_stop_input():
+                    self.stop_monitoring()
+                    break
                 
                 # Capture screenshot and find mobs
                 image = self.capture_screen()
@@ -444,7 +581,14 @@ class MobFinderDirect:
                     time.sleep(2)
                     continue
                 
-                found_mobs = self.find_mobs_with_text(ocr_results)
+                # Filter out text that looks like code/IDE text
+                filtered_results = self.filter_game_text(ocr_results)
+                if not filtered_results:
+                    print("❌ No game text found after filtering, retrying in 2 seconds...")
+                    time.sleep(2)
+                    continue
+                
+                found_mobs = self.find_mobs_with_text(filtered_results)
                 if not found_mobs:
                     print("❌ No mobs with text found, retrying in 2 seconds...")
                     time.sleep(2)
@@ -470,9 +614,12 @@ class MobFinderDirect:
                     else:
                         print("❌ Failed to move mouse to target")
                 
-                # Wait before next scan
+                # Wait before next scan (with stop checking)
                 print("   ⏱️ Waiting 3 seconds before next scan...")
-                time.sleep(3)
+                for i in range(30):  # 3 seconds = 30 * 0.1 second intervals
+                    if self.stop_requested or not self.monitoring_active:
+                        break
+                    time.sleep(0.1)
                 
         except KeyboardInterrupt:
             print("\n⏹️ Continuous monitoring stopped by user")
@@ -504,18 +651,37 @@ def main():
     # Create mob finder
     mob_finder = MobFinderDirect()
     
+    # Check if OCR initialized properly
+    if mob_finder.reader is None:
+        print("❌ OCR initialization failed! Cannot proceed.")
+        print("💡 Please check your Python dependencies and try again.")
+        return
+    
     try:
         print("\n🚀 AUTOMATICALLY STARTING CONTINUOUS MONITORING MODE...")
-        print("💡 Press Ctrl+C to stop the application")
+        print("💡 STOP OPTIONS:")
+        print("   - Press Ctrl+C to stop immediately")
+        print("   - Type 'stop', 'quit', 'exit', or 'q' and press Enter")
+        print("💡 Make sure your GAME WINDOW is open and focused!")
         print("=" * 50)
+        
+        # Give user time to focus the game window
+        print("⏱️ Starting in 3 seconds... Make sure your game window is focused!")
+        for i in range(3, 0, -1):
+            print(f"   {i}...")
+            time.sleep(1)
         
         # Automatically start continuous monitoring mode
         mob_finder.continuous_monitoring_mode()
         
     except KeyboardInterrupt:
         print("\n⏹️ Application stopped by user")
+        mob_finder.monitoring_active = False
+        mob_finder.keyboard_active = False
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
+        mob_finder.monitoring_active = False
+        mob_finder.keyboard_active = False
     
     print("\n🏁 Application complete!")
 
