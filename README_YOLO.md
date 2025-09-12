@@ -38,25 +38,20 @@
 
 ### 1. Install Requirements
 ```bash
-cd mob_finder_yolo
-pip install -r requirements_yolo.txt
+pip install -r requirements.txt
 ```
 
 ### 2. Run with Pretrained Model (for testing)
 ```bash
-python mob_finder_yolo.py
+python mob_finder.py
 ```
 *Note: Pretrained model won't detect mobs perfectly - you need custom training*
 
 ### 3. Train Custom Model (RECOMMENDED)
-```bash
-# Set up dataset structure
-python train_mob_model.py
-
-# Add your annotated screenshots to the dataset folders
-# Then train:
-python train_mob_model.py --train
-```
+For custom model training, you'll need to:
+- Collect 100-500 screenshots of your game
+- Annotate them with bounding boxes around mobs
+- Train using YOLO training tools (see training section below)
 
 ## 🎮 How YOLO Detection Works
 
@@ -105,7 +100,8 @@ Draw bounding boxes around each mob and label them as "mob".
 
 ### Step 3: Train Model
 ```bash
-python train_mob_model.py --train
+# Using YOLO's built-in training
+yolo train data=path/to/your/dataset.yaml model=yolov8n.pt epochs=100
 ```
 
 Training takes 1-4 hours depending on:
@@ -115,8 +111,8 @@ Training takes 1-4 hours depending on:
 
 ### Step 4: Use Trained Model
 ```bash
-# Edit mob_finder_yolo.py and change model path to your trained model
-# Usually: runs/train/mob_detector/weights/best.pt
+# Edit mob_finder.py and change model path to your trained model
+# Usually: runs/train/weights/best.pt
 ```
 
 ## ⚙️ Configuration
@@ -154,10 +150,7 @@ model = "yolov8m.pt"      # Medium model
 ## 🔥 GPU Acceleration
 
 **NVIDIA GPU (Recommended):**
-```bash
-# Install CUDA version
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-```
+CUDA support is automatically included with ultralytics. Ensure you have NVIDIA drivers and CUDA toolkit installed.
 
 **Performance with GPU:**
 - 🔥 30-60 FPS real-time detection
@@ -222,7 +215,7 @@ This INTELLIGENT YOLO version **completely solves**:
 
 ### Quick Start Command:
 ```bash
-cd mob_finder_yolo && python mob_finder_yolo.py
+python mob_finder.py
 ```
 
 **This version perfectly solves all your issues PLUS adds convenient global hotkey control!** 🧠⚡🎮🎯
@@ -230,20 +223,16 @@ cd mob_finder_yolo && python mob_finder_yolo.py
 ## 🎮 **GLOBAL HOTKEY CONTROLS**
 
 ### **Instant Control Without Terminal Focus:**
-- **F1** = Start/Resume detection (works anywhere)
-- **F2** = Pause/Unpause detection (instant control)
-- **F3** = Stop detection completely  
-- **F4** = Toggle hunting mode on/off
+- **F1** = Start/Pause/Resume detection (works anywhere)
 
 ### **How to Use Hotkeys:**
-1. Run `python mob_finder_yolo.py`
+1. Run `python mob_finder.py`
 2. **Focus your game window** (important!)
 3. Press **F1** to start detection
-4. Use hotkeys anytime - **no need to switch back to terminal!**
-5. Press **F3** to stop when done
+4. Press **F1** again to pause/resume - **no need to switch back to terminal!**
+5. Use **Ctrl+C** in terminal to stop completely when done
 
 ### **Benefits:**
 - 🎮 **No window switching** - stay focused on your game
-- ⚡ **Instant control** - pause/resume immediately
-- 🎯 **Toggle features** - turn hunting mode on/off as needed
-- 🛡️ **Safe operation** - easy emergency stop with F3
+- ⚡ **Instant control** - pause/resume with F1
+- 🛡️ **Safe operation** - emergency stop with Ctrl+C

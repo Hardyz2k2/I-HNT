@@ -721,9 +721,8 @@ def main():
     # Create YOLO mob finder
     yolo_finder = YOLOMobFinder()
     
-    # Skip protection setup for testing
-    print("🛡️ SKIPPING PROTECTION SETUP FOR TESTING")
-    yolo_finder.protected_names = []
+    # Setup protection (character/pet names)
+    yolo_finder.setup_protection()
     
     # Load YOLO model
     if not yolo_finder.load_yolo_model():

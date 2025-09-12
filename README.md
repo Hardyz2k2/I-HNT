@@ -116,13 +116,12 @@ All dependencies are automatically installed with:
 pip install -r requirements.txt
 ```
 
-**Core YOLO Libraries:**
-- `ultralytics` - YOLOv8 for real-time object detection
-- `torch` - PyTorch for deep learning
-- `torchvision` - Computer vision utilities
+**Essential Libraries:**
+- `ultralytics` - YOLOv8 for real-time object detection (includes PyTorch)
 - `opencv-python` - Image processing
 - `pyautogui` - Mouse/keyboard automation
 - `mss` - Ultra-fast screen capture
+- `numpy` - Numerical operations
 - `pynput` - Global hotkeys and input monitoring
 
 ## 🛠️ Troubleshooting
@@ -133,7 +132,7 @@ pip install -r requirements.txt
 - **Temporary**: Test with pretrained model to verify setup works
 
 ### Performance Issues
-- **GPU Recommended**: Install CUDA for 30+ FPS processing
+- **GPU Recommended**: CUDA support included with ultralytics for 30+ FPS processing
 - **CPU Mode**: Will work but slower (5-15 FPS)
 - **Close Programs**: Free up system resources for better performance
 

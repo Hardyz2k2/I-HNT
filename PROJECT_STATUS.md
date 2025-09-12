@@ -20,13 +20,12 @@ A YOLO-powered Python automation application for gaming, specifically designed f
     - Zone-based hunting system (300px radius)
 
 ### Configuration Files
-1. **`requirements.txt`** - YOLO dependencies
-   - `ultralytics` - YOLOv8 for object detection
-   - `torch` - PyTorch for deep learning
-   - `torchvision` - Computer vision utilities
+1. **`requirements.txt`** - Essential YOLO dependencies
+   - `ultralytics` - YOLOv8 for object detection (includes PyTorch)
    - `opencv-python` - Image processing
    - `pyautogui` - Mouse/keyboard automation
    - `mss` - Ultra-fast screen capture
+   - `numpy` - Numerical operations
    - `pynput` - Global hotkeys
 
 2. **`yolov8n.pt`** - Pretrained YOLO model (for testing)
@@ -90,7 +89,7 @@ A YOLO-powered Python automation application for gaming, specifically designed f
 4. **Stop**: Ctrl+C in terminal or hotkey controls
 
 ### Global Hotkey Controls
-- **F1**: Start/Pause Toggle (works from game window)
+- **F1**: Start/Pause/Resume Toggle (works from game window)
 - **No Window Switching**: Stay focused on game
 - **Emergency Stop**: Ctrl+C in terminal
 
