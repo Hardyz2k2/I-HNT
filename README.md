@@ -24,16 +24,19 @@ An ultra-fast gaming assistant using **YOLO AI** for real-time mob detection and
 
 ## 🚀 Quick Start
 
-### 1. Install Requirements
+### 1. One-Click Installation
 ```bash
-pip install -r requirements.txt
+# Simply double-click INSTALL.bat - that's it!
+# Automatically installs Python + all dependencies
 ```
 
 ### 2. Run the Application
 ```bash
-python i_hnt.py
+# Double-click I-HNT.bat (recommended)
+# Or run: python i_hnt.py
 ```
-*Or simply double-click "I-HNT.bat" for easy startup!*
+
+**NEW**: No Python installation required! Our installer handles everything automatically.
 
 ### 3. Global Hotkey Control
 - **Focus your game window** (important!)
@@ -104,13 +107,35 @@ Status: All mobs within 150px of center are ignored
 - **Ctrl+C**: Emergency stop in terminal
 - Focus stays on your game for seamless experience
 
+## 💿 Installation Options
+
+### Option 1: Automatic Installation (Recommended)
+- **Double-click `INSTALL.bat`** - Installs everything automatically
+- **No Python needed** - Downloads embedded Python (15MB)
+- **No admin rights** - Installs in application folder
+- **Internet required** - Only for first-time setup
+
+### Option 2: Offline Package
+- **Run `create_offline_package.bat`** - Creates complete offline installer
+- **~200MB package** - Includes Python + all dependencies
+- **Share with friends** - No internet needed after creation
+- **Perfect for offline systems**
+
+### Option 3: Manual Installation (Advanced)
+```bash
+# If you already have Python 3.8+
+pip install -r requirements.txt
+python i_hnt.py
+```
+
 ## 🔧 System Requirements
 
-- **Operating System**: Windows 10/11 (recommended), Linux, macOS
-- **Python**: 3.7+ (Python 3.8+ recommended)
-- **RAM**: 4GB minimum, 8GB recommended
+- **Operating System**: Windows 10/11 (primary), Linux/macOS (compatible)
+- **Python**: Auto-installed (or 3.8+ if manual)
+- **RAM**: 4GB minimum, 8GB recommended for YOLO processing
 - **Display**: 1920×1080 resolution (optimal performance)
 - **Game**: Windowed or fullscreen mode
+- **Internet**: Required for initial setup only
 
 ## 📦 Dependencies
 

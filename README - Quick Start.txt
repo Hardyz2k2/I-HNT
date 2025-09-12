@@ -5,9 +5,9 @@
 
 📦 INSTALLATION (First Time Only):
 ---------------------------------
-1. Double-click "INSTALL.bat"
-2. Wait for installation to complete
-3. That's it!
+1. Double-click "INSTALL.bat" 
+2. Wait for automatic Python + dependencies installation
+3. That's it! No manual Python installation needed!
 
 🚀 STARTING I-HNT:
 -----------------
@@ -29,9 +29,16 @@
 
 🔧 REQUIREMENTS:
 ---------------
-- Python 3.8+ (get from python.org if not installed)
-- Windows 10/11
+- Windows 10/11 (No Python installation needed!)
 - 4GB+ RAM (8GB recommended)
+- Internet connection (for first-time installation only)
+
+✨ NEW FEATURES:
+--------------
+- ✅ Auto-installs Python if not found (no admin rights needed)
+- ✅ Embedded Python option (fully portable)
+- ✅ Offline package creator available
+- ✅ Works on any Windows system
 
 🎯 FEATURES:
 -----------
