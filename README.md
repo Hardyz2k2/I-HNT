@@ -1,10 +1,12 @@
-# Mob Finder - YOLO Real-Time Detection Gaming Tool ⚡
+# I-HNT Gaming Assistant 🎯
 
-An ultra-fast Python automation application using **YOLO (You Only Look Once)** AI for real-time visual mob detection and targeting. Evolved from OCR-based text detection to AI-powered computer vision for maximum speed and accuracy.
+**"I Have No Time" - Work Hard, Game Smart!** 💪
+
+An ultra-fast gaming assistant using **YOLO AI** for real-time mob detection and hunting. Perfect for busy gamers who want to maximize their limited gaming time!
 
 ## 🔥 PROJECT EVOLUTION
 
-**From Mouse Mover → Mob Finder:**
+**From Manual Gaming → I-HNT Automation:**
 - **Previous**: OCR text detection (~3 FPS, unreliable with moving mobs)
 - **Current**: YOLO AI visual detection (30+ FPS, real-time tracking)
 - **Result**: 10x faster processing, catches fast-moving mobs reliably
@@ -17,7 +19,7 @@ An ultra-fast Python automation application using **YOLO (You Only Look Once)** 
 - **🧠 TARGET PERSISTENCE**: Intelligent tracking until mob dies
 - **🔍 ACTIVE HUNTING**: Automatically searches when no mobs visible
 - **🛡️ SMART PROTECTION**: Position-based character/pet protection
-- **🎮 GLOBAL HOTKEYS**: F1 start/pause control without window switching
+- **🎮 GLOBAL HOTKEYS**: CapsLock start/pause control without window switching
 - **⌨️ KEYBOARD AUTOMATION**: Continuous skill sequence (1,2,3,1,4,5)
 
 ## 🚀 Quick Start
@@ -29,12 +31,13 @@ pip install -r requirements.txt
 
 ### 2. Run the Application
 ```bash
-python mob_finder.py
+python i_hnt.py
 ```
+*Or simply double-click "I-HNT.bat" for easy startup!*
 
 ### 3. Global Hotkey Control
 - **Focus your game window** (important!)
-- Press **F1** to start detection
+- Press **CapsLock** to start detection
 - Use hotkeys anytime - no need to switch back to terminal!
 
 ### 4. Advanced Setup (Optional)
@@ -72,7 +75,7 @@ Status: All mobs within 150px of center are ignored
 - **Performance**: Nano model (fastest) vs larger models (more accurate)
 
 ### Global Hotkey Controls
-- **F1**: Start/Pause Toggle - works from anywhere
+- **CapsLock**: Start/Pause Toggle - works from anywhere
 - **Ctrl+C**: Emergency stop in terminal
 - No need to switch windows - stay focused on your game!
 
@@ -94,7 +97,7 @@ Status: All mobs within 150px of center are ignored
 ## ⏹️ Control Options
 
 ### Global Hotkeys (Work from Game Window)
-- **F1**: Start/Pause Toggle
+- **CapsLock**: Start/Pause Toggle
 - **No window switching needed** - hotkeys work globally
 
 ### Terminal Commands
@@ -138,7 +141,7 @@ pip install -r requirements.txt
 
 ### Hotkeys Not Working
 - **Run as Administrator**: May be needed for global hotkeys
-- **Game Window Focus**: Make sure game window is active when pressing F1
+- **Game Window Focus**: Make sure game window is active when pressing CapsLock
 - **Antivirus**: Temporarily disable if blocking input automation
 
 ### Protection Issues
@@ -170,7 +173,7 @@ Designed for games where:
 
 The application provides detailed real-time feedback:
 ```
-⚡ YOLO Mob Finder - Real-Time Visual Detection
+🎯 I-HNT - Real-Time Gaming Assistant
 🔥 GPU Available: ✅ YES (CUDA enabled)
 🎯 Target FPS: 30
 🛡️ Character protection: 150 pixel radius
@@ -186,7 +189,7 @@ The application provides detailed real-time feedback:
 
 ## 🎉 Ready to Use!
 
-Your YOLO-powered mob finder is ready to go. Just run `python mob_finder.py` and press F1 to start!
+Your I-HNT Gaming Assistant is ready to go! Just run `python i_hnt.py` or double-click "I-HNT.bat" and press CapsLock to start hunting!
 
 ## 📚 Additional Resources
 
@@ -196,10 +199,13 @@ Your YOLO-powered mob finder is ready to go. Just run `python mob_finder.py` and
 
 ## 🚀 Project Status
 
-**✅ PRODUCTION READY** - YOLO Real-Time Detection
-- **Main Application**: `mob_finder.py` - Ultra-fast AI-powered targeting
-- **Technology**: YOLO computer vision for 30+ FPS processing
-- **Key Features**: Real-time detection, target persistence, active hunting
-- **Control**: Global hotkeys (F1 start/pause) for seamless gaming
+**✅ PRODUCTION READY** - I-HNT Gaming Assistant
+- **Main Application**: `i_hnt.py` - Ultra-fast AI-powered hunting assistant
+- **Easy Launcher**: `I-HNT.bat` - Double-click to start instantly
+- **Technology**: YOLO AI for 30+ FPS real-time processing
+- **Key Features**: Smart hunting, target persistence, active exploration
+- **Control**: Global CapsLock hotkey for seamless gaming
 
-**Remember**: This AI-POWERED version completely solves moving mob detection with real-time visual recognition! Focus your game window, press F1, and experience 30+ FPS mob targeting. ⚡🤖🎯
+**🌟 Developed by HardyZ-2k2 - Black Angels Family 🔥**
+
+**"I Have No Time" but I love to game!** Focus your game window, press CapsLock, and let I-HNT handle the hunting while you focus on strategy! 🎯💪

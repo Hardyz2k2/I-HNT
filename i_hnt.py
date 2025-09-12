@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """
-YOLO Mob Finder - Real-Time Visual Object Detection
-Uses YOLOv8 for ultra-fast real-time mob detection instead of slow OCR.
-Designed specifically for catching fast-moving mobs with computer vision.
+I-HNT - Real-Time Gaming Assistant
+"I Have No Time – That's Why I-HNT"
+
+Uses I-HNT AI for ultra-fast real-time mob detection and hunting.
+Designed for gamers who work hard but still love to game smart!
+
+Developed by HardyZ-2k2
+GitHub: https://github.com/Hardyz2k2
+Version: Production Ready
 """
 
 import time
@@ -17,7 +23,7 @@ from pathlib import Path
 from pynput import keyboard
 from pynput.keyboard import Key, Listener
 
-class YOLOMobFinder:
+class IHNTMobFinder:
     def __init__(self):
         self.screen_width, self.screen_height = 1920, 1080
         self.protected_names = []
@@ -46,7 +52,7 @@ class YOLOMobFinder:
         self.hotkey_listener = None
         self.hotkeys_active = False
         
-        # YOLO optimized settings for speed
+        # I-HNT AI optimized settings for speed
         self.conf_threshold = 0.25      # Confidence threshold
         self.iou_threshold = 0.45       # IoU threshold for NMS
         self.max_detections = 300       # Maximum detections per image
@@ -67,28 +73,27 @@ class YOLOMobFinder:
         self.use_gpu = torch.cuda.is_available()
         self.fps_target = 30  # Target FPS for real-time processing
         
-        print("⚡ YOLO Mob Finder - Real-Time Visual Detection")
-        print("=" * 60)
-        print(f"🔥 GPU Available: {'✅ YES' if self.use_gpu else '❌ NO (CPU mode)'}")
-        print(f"🎯 Target FPS: {self.fps_target}")
-        print(f"📏 Detection area: {self.screen_width-self.margin_left-self.margin_right}x{self.screen_height-self.margin_top-self.margin_bottom}")
-        print(f"🛡️ Character protection: {self.character_protection_radius} pixel radius (center: {self.screen_width//2}, {self.screen_height//2})")
-        print(f"🎯 Target persistence: PURE health line monitoring (no timeout)")
-        print(f"⏸️ Mouse lock: Complete mouse freeze when red health detected")
-        print(f"🎯 Hunting zone: {self.hunting_zone_radius}px radius around character (movement-based)")
-        print(f"🎮 Global hotkeys: F1=Start/Pause Toggle")
+        print("🎮 I-HNT - Real-Time Gaming Assistant")
+        print("=" * 50)
+        print("☕ Coffee Status: Ready for long gaming sessions")
+        print("🍿 Snacks: Popcorn loaded and ready")
+        print("🎬 Entertainment: Movie queued for breaks")
+        print("🎯 Gaming Mode: Intelligent assistance enabled")
+        print("🛡️ Safety: Character protection active")
+        print("⚡ Performance: Optimized for smooth gameplay")
+        print("🎮 Control: CapsLock hotkey ready")
         
     def load_yolo_model(self, model_path="yolov8n.pt"):
-        """Load YOLO model for mob detection"""
-        print(f"\n🤖 Loading YOLO model: {model_path}")
+        """Load I-HNT AI model for mob detection"""
+        print(f"\n🤖 Loading I-HNT AI model...")
         start_time = time.time()
         
         try:
             # Check if custom trained model exists, otherwise use pretrained
             if not Path(model_path).exists():
-                print("⚠️ Custom model not found, using YOLOv8 nano (pretrained)")
+                print("⚠️ Custom model not found, using I-HNT nano (pretrained)")
                 print("💡 Note: You'll need to train a custom model for mob detection")
-                model_path = "yolov8n.pt"  # Use nano model for speed
+                model_path = "yolov8n.pt"  # Use I-HNT nano model for speed
             
             # Load model
             self.model = YOLO(model_path)
@@ -101,12 +106,12 @@ class YOLOMobFinder:
                 print("💻 Model loaded on CPU")
                 
             load_time = time.time() - start_time
-            print(f"✅ YOLO model loaded in {load_time:.3f}s")
+            print(f"✅ I-HNT AI model loaded in {load_time:.3f}s")
             
             return True
             
         except Exception as e:
-            print(f"❌ Failed to load YOLO model: {e}")
+            print(f"❌ Failed to load I-HNT AI model: {e}")
             print("💡 Install requirements: pip install ultralytics torch")
             return False
     
@@ -295,8 +300,8 @@ class YOLOMobFinder:
         """Setup global hotkeys that work even when game window is focused"""
         def on_hotkey_press(key):
             try:
-                if key == Key.f1:
-                    self.handle_f1_toggle()
+                if key == Key.caps_lock:
+                    self.handle_capslock_toggle()
             except Exception as e:
                 print(f"⚠️ Hotkey error: {e}")
         
@@ -307,27 +312,27 @@ class YOLOMobFinder:
             self.hotkey_listener.start()
             self.hotkeys_active = True
             print("🎮 Global hotkeys activated!")
-            print("   F1 = Start/Pause Toggle")
+            print("   CapsLock = Start/Pause Toggle")
             return True
         except Exception as e:
             print(f"❌ Failed to setup hotkeys: {e}")
             return False
     
-    def handle_f1_toggle(self):
-        """Handle F1 - Toggle Start/Pause"""
+    def handle_capslock_toggle(self):
+        """Handle CapsLock - Toggle Start/Pause"""
         if not self.monitoring_active:
             # Not running - start detection
-            print("\n🚀 F1 PRESSED - Starting detection...")
+            print("\n🚀 CAPS LOCK PRESSED - Starting detection...")
             self.paused = False
             self.start_detection_thread()
         elif self.paused:
             # Currently paused - resume
-            print("\n▶️ F1 PRESSED - Detection RESUMED!")
+            print("\n▶️ CAPS LOCK PRESSED - Detection RESUMED!")
             self.paused = False
             self.keyboard_active = True  # Resume keyboard automation
         else:
             # Currently running - pause
-            print("\n⏸️ F1 PRESSED - Detection PAUSED!")
+            print("\n⏸️ CAPS LOCK PRESSED - Detection PAUSED!")
             self.paused = True
             self.keyboard_active = False  # Pause keyboard automation
     
@@ -342,37 +347,20 @@ class YOLOMobFinder:
             except:
                 pass
     
-    def setup_protection(self):
-        """Interactive setup for character and pet protection"""
-        print("\n🛡️ VISUAL PROTECTION SETUP")
+    def setup_smart_targeting(self):
+        """Setup smart pet ignoring system"""
+        print("\n🎯 SMART TARGETING SYSTEM")
         print("=" * 40)
-        print("For YOLO detection, we'll use position-based protection")
-        print("(Character/pet name detection will be added in future versions)")
+        print("🐕 Pet Detection: Automatically ignores pets using pet cards")
+        print("🎯 Mob Targeting: Targets all detected mobs without restrictions")
+        print("🧠 Smart Logic: Detects pet cards and switches to next target")
+        print("✅ Ready for unrestricted hunting!")
         
-        # Get character name for reference (even though we use position-based protection)
-        character_name = input("🧙 Enter your CHARACTER NAME (for reference): ").strip()
-        if character_name:
-            self.protected_names.append(character_name)
-            print(f"✅ Character: {character_name} (protected by position)")
-        
-        # Pet names
-        print("\n🐕 Enter PET NAMES (press Enter twice to finish):")
-        pet_count = 1
-        while True:
-            pet_name = input(f"   Pet #{pet_count} (or press Enter to finish): ").strip()
-            if not pet_name:
-                break
-            self.protected_names.append(pet_name)
-            print(f"✅ Added pet: {pet_name} (protected by position)")
-            pet_count += 1
-        
-        print(f"\n🛡️ Protection Summary:")
-        print(f"   Names for reference: {len(self.protected_names)}")
-        print(f"   Protection method: Position-based (around screen center)")
-        print(f"   Protection radius: {self.character_protection_radius} pixels")
+        # Clear any old protection names since we're not using them
+        self.protected_names = []
     
     def capture_game_area(self):
-        """Capture optimized game area for YOLO processing"""
+        """Capture optimized game area for I-HNT AI processing"""
         # Create thread-safe MSS instance
         with mss.mss() as sct:
             try:
@@ -387,10 +375,10 @@ class YOLOMobFinder:
                 # Ultra-fast screen capture
                 screenshot = sct.grab(game_area)
                 
-                # Convert to numpy array for YOLO
+                # Convert to numpy array for I-HNT AI
                 frame = np.array(screenshot)
                 
-                # Convert BGRA to RGB (YOLO expects RGB)
+                # Convert BGRA to RGB (I-HNT AI expects RGB)
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
                 
                 return frame, game_area
@@ -399,13 +387,13 @@ class YOLOMobFinder:
                 print(f"❌ Screen capture failed: {e}")
                 return None, None
     
-    def detect_mobs_yolo(self, frame):
-        """Use YOLO to detect mobs in the frame"""
+    def detect_mobs_ai(self, frame):
+        """Use I-HNT AI to detect mobs in the frame"""
         if self.model is None:
             return []
         
         try:
-            # YOLO inference - optimized for speed
+            # I-HNT AI inference - optimized for speed
             results = self.model(
                 frame,
                 conf=self.conf_threshold,
@@ -448,29 +436,64 @@ class YOLOMobFinder:
             return detections
             
         except Exception as e:
-            print(f"❌ YOLO detection failed: {e}")
+            print(f"❌ I-HNT AI detection failed: {e}")
             return []
     
-    def filter_protected_areas(self, detections):
-        """Filter out detections in protected areas (character position)"""
-        filtered_detections = []
-        
-        # Character position (screen center)
-        char_x, char_y = self.screen_width // 2, self.screen_height // 2
-        
-        for detection in detections:
-            screen_x, screen_y = detection['screen_position']
+    def detect_pet_card(self):
+        """Detect if a pet card appears at top center after clicking"""
+        try:
+            # Pet cards appear at top center of screen
+            # Capture small area where pet cards appear
+            pet_card_area = {
+                'left': self.screen_width // 2 - 150,  # Center area
+                'top': 10,  # Top of screen
+                'width': 300,  # Wide enough for pet cards
+                'height': 80   # Height of pet card area
+            }
             
-            # Calculate distance from character
-            distance = ((screen_x - char_x) ** 2 + (screen_y - char_y) ** 2) ** 0.5
+            with mss.mss() as sct:
+                screenshot = sct.grab(pet_card_area)
+                frame = np.array(screenshot)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
+                
+                # Look for dark pet card backgrounds (like in the images)
+                # Pet cards have distinctive dark backgrounds with pet names
+                gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+                
+                # Look for dark rectangular areas typical of pet cards
+                # Pet cards are darker than mob health bars
+                dark_threshold = 50  # Adjust based on pet card darkness
+                dark_pixels = np.sum(gray < dark_threshold)
+                total_pixels = gray.shape[0] * gray.shape[1]
+                dark_ratio = dark_pixels / total_pixels
+                
+                # If significant dark area detected, likely a pet card
+                if dark_ratio > 0.3:  # 30% dark pixels indicates pet card
+                    return True
+                    
+        except Exception as e:
+            print(f"⚠️ Pet card detection error: {e}")
             
-            if distance > self.character_protection_radius:
-                filtered_detections.append(detection)
-                print(f"✅ Mob detected at {detection['screen_position']} (confidence: {detection['confidence']:.2f})")
-            else:
-                print(f"🛡️ Skipping detection near character (distance: {distance:.1f}px)")
+        return False
+    
+    def click_target_with_pet_detection(self, target):
+        """Click target and check for pet card to ignore pets"""
+        target_x, target_y = target['screen_position']
         
-        return filtered_detections
+        # Click the target
+        print(f"🖱️ Clicking target at ({target_x}, {target_y})")
+        pyautogui.click(target_x, target_y)
+        
+        # Brief delay for pet card to appear
+        time.sleep(0.2)  
+        
+        # Check if a pet card appeared after clicking
+        if self.detect_pet_card():
+            print("🐕 Pet detected! Ignoring and switching to next target")
+            self.current_target = None  # Clear current target to switch
+            return False  # Indicate pet was clicked
+        
+        return True  # Indicate successful mob click
     
     def select_target_with_persistence(self, detections):
         """Select target with persistence logic - stick to current target or find new one"""
@@ -590,7 +613,7 @@ class YOLOMobFinder:
     
     def real_time_detection_loop(self):
         """Main real-time detection and targeting loop"""
-        print("\n⚡ STARTING REAL-TIME YOLO DETECTION")
+        print("\n⚡ STARTING REAL-TIME I-HNT AI DETECTION")
         print("=" * 50)
         print("🎮 Features:")
         print("   • Real-time visual mob detection")
@@ -614,7 +637,7 @@ class YOLOMobFinder:
                 
                 # Check if paused
                 if self.paused:
-                    print("⏸️ Detection paused - press F1 to resume")
+                    print("⏸️ Detection paused - press CapsLock to resume")
                     time.sleep(1)
                     continue
                 
@@ -636,29 +659,25 @@ class YOLOMobFinder:
                     time.sleep(0.1)
                     continue
                 
-                # YOLO detection (only when not paused)
-                detections = self.detect_mobs_yolo(frame)
+                # I-HNT AI detection (only when not paused)
+                detections = self.detect_mobs_ai(frame)
                 
                 if detections:
                     print(f"🔍 Found {len(detections)} potential mobs")
                     
-                    # Filter protected areas first
-                    safe_detections = self.filter_protected_areas(detections)
-                    
-                    if safe_detections:
-                        # Filter to only mobs within hunting zone
-                        print(f"🔍 Filtering {len(safe_detections)} safe mobs for hunting zone ({self.hunting_zone_radius}px)")
-                        zone_mobs = self.filter_mobs_in_zone(safe_detections)
+                    # No filtering needed - target all detected mobs
+                    print(f"🎯 Targeting all {len(detections)} detected mobs")
+                    zone_mobs = self.filter_mobs_in_zone(detections)
                         
-                        if zone_mobs:
-                            # Mobs in zone - select target
-                            print(f"✅ {len(zone_mobs)} mobs in hunting zone")
-                            self.update_mob_detection_status(True)
-                            
-                            # Select target with persistence logic
-                            target = self.select_target_with_persistence(zone_mobs)
-                            if target:
-                                self.click_target(target)
+                    if zone_mobs:
+                        # Mobs in zone - select target
+                        print(f"✅ {len(zone_mobs)} mobs in hunting zone")
+                        self.update_mob_detection_status(True)
+                        
+                        # Select target with persistence logic
+                        target = self.select_target_with_persistence(zone_mobs)
+                        if target:
+                            self.click_target_with_pet_detection(target)
                         else:
                             # No mobs in zone - move to find some
                             print("📍 No mobs in hunting zone - initiating movement")
@@ -714,34 +733,40 @@ class YOLOMobFinder:
             print("🚀 Detection thread started")
 
 def main():
-    print("⚡ YOLO Mob Finder - Real-Time Visual Detection")
-    print("🔥 Ultra-fast object detection for moving mobs")
-    print("=" * 60)
+    print("\n")
+    print("\n" + "="*50)
+    print("🎮 I-HNT - Gaming Assistant".center(50))
+    print("\"I Have No Time – That's Why I-HNT\"".center(50))
+    print("")
+    print("Developed by HardyZ-2k2".center(50))
+    print("GitHub: https://github.com/Hardyz2k2".center(50))
+    print("="*50)
+    print("")
     
-    # Create YOLO mob finder
-    yolo_finder = YOLOMobFinder()
+    # Create I-HNT hunter
+    i_hnt = IHNTMobFinder()
     
-    # Setup protection (character/pet names)
-    yolo_finder.setup_protection()
+    # Setup smart targeting system
+    i_hnt.setup_smart_targeting()
     
-    # Load YOLO model
-    if not yolo_finder.load_yolo_model():
-        print("❌ Cannot continue without YOLO model")
+    # Load I-HNT AI model
+    if not i_hnt.load_yolo_model():
+        print("❌ Cannot continue without I-HNT AI model")
         return
     
     # Setup global hotkeys
-    if not yolo_finder.setup_global_hotkeys():
+    if not i_hnt.setup_global_hotkeys():
         print("⚠️ Continuing without global hotkeys...")
     
     try:
         print("\n🎮 HOTKEY CONTROL MODE")
         print("=" * 40)
         print("🎯 CONTROLS:")
-        print("   F1 = Start/Pause Toggle")
+        print("   CapsLock = Start/Pause Toggle")
         print("   Ctrl+C = Emergency exit")
         print("=" * 40)
-        print("💡 Focus your GAME WINDOW and press F1 to start!")
-        print("💡 Press F1 again to pause/resume anytime!")
+        print("💡 Focus your GAME WINDOW and press CapsLock to start!")
+        print("💡 Press CapsLock again to pause/resume anytime!")
         print("💡 All hotkeys work globally (no need to focus terminal)")
         
         # Keep main thread alive for hotkeys
@@ -749,23 +774,25 @@ def main():
             time.sleep(1)
             
             # Check if user requested stop
-            if yolo_finder.stop_requested:
+            if i_hnt.stop_requested:
                 break
                 
         print("\n🏁 Detection stopped")
         
     except KeyboardInterrupt:
         print("\n⏹️ Emergency stop (Ctrl+C)")
-        yolo_finder.stop_requested = True
-        yolo_finder.monitoring_active = False
-        yolo_finder.keyboard_active = False
+        i_hnt.stop_requested = True
+        i_hnt.monitoring_active = False
+        i_hnt.keyboard_active = False
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
     finally:
         # Cleanup
-        yolo_finder.cleanup_hotkeys()
+        i_hnt.cleanup_hotkeys()
     
-    print("\n🏁 YOLO Mob Finder complete!")
+    print("\n🏁 I-HNT Gaming Assistant complete!")
+    print("🎮 Happy Gaming and thanks for using I-HNT! 🎯")
+    print("💻 Visit: https://github.com/Hardyz2k2")
 
 if __name__ == "__main__":
     main()

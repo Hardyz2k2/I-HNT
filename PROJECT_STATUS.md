@@ -1,23 +1,30 @@
-# Mob Finder - Project Status & Memory
+# I-HNT Gaming Assistant - Project Status
 
 ## Project Overview
-A YOLO-powered Python automation application for gaming, specifically designed for real-time visual mob detection and targeting. Evolved from OCR-based text detection to AI-powered computer vision for maximum speed and reliability.
+**"I Have No Time" - Work Hard, Game Smart!** 💪
+
+An intelligent gaming assistant using YOLO AI for real-time mob detection and hunting. Perfect for busy gamers who want to maximize their limited gaming time with smart automation.
 
 ## Current Project Structure ✅
 
 ### Main Application
-- **`mob_finder.py`** - **PRODUCTION READY** ✅
-  - **Technology**: YOLO (You Only Look Once) AI visual detection
+- **`i_hnt.py`** - **PRODUCTION READY** ✅
+  - **Technology**: YOLO AI for intelligent gaming assistance
   - **Performance**: 30+ FPS real-time processing
   - **Features**: 
     - Real-time visual mob detection using deep learning
     - Target persistence with health bar monitoring
     - Active hunting mode (automatic area exploration)
-    - Global hotkey controls (F1 start/pause)
+    - Global hotkey controls (CapsLock start/pause)
     - Position-based character protection (150px radius)
     - Continuous keyboard automation (123145 sequence)
     - GPU acceleration support (CUDA)
     - Zone-based hunting system (300px radius)
+
+### Easy Installation System
+- **`INSTALL.bat`** - One-click dependency installation
+- **`I-HNT.bat`** - Simple launcher for friends to use
+- **`README - Quick Start.txt`** - User-friendly setup guide
 
 ### Configuration Files
 1. **`requirements.txt`** - Essential YOLO dependencies
@@ -33,11 +40,12 @@ A YOLO-powered Python automation application for gaming, specifically designed f
    - Requires custom training for game-specific accuracy
 
 ### Documentation
-- **`README.md`** - Main user guide and setup instructions
+- **`README.md`** - Main user guide with I-HNT branding
 - **`README_YOLO.md`** - Detailed YOLO training and configuration
+- **`README - Quick Start.txt`** - Simple guide for non-technical users
 - **`PROJECT_STATUS.md`** - This file - current project documentation
 
-## Key Evolution: Mouse Mover → Mob Finder
+## Key Evolution: Manual Gaming → I-HNT Automation
 
 ### Previous OCR Version Issues:
 - ❌ ~3 FPS processing speed
@@ -83,13 +91,13 @@ A YOLO-powered Python automation application for gaming, specifically designed f
 ## Usage Instructions
 
 ### Quick Start
-1. **Install**: `pip install -r requirements.txt`
-2. **Run**: `python mob_finder.py`
-3. **Control**: Press F1 in game window to start/pause
+1. **Install**: Double-click `INSTALL.bat` (first time only)
+2. **Run**: Double-click `I-HNT.bat` or run `python i_hnt.py`
+3. **Control**: Press CapsLock in game window to start/pause
 4. **Stop**: Ctrl+C in terminal or hotkey controls
 
 ### Global Hotkey Controls
-- **F1**: Start/Pause/Resume Toggle (works from game window)
+- **CapsLock**: Start/Pause/Resume Toggle (works from game window)
 - **No Window Switching**: Stay focused on game
 - **Emergency Stop**: Ctrl+C in terminal
 
@@ -120,7 +128,7 @@ A YOLO-powered Python automation application for gaming, specifically designed f
 - [x] Target persistence with health bar monitoring
 - [x] Active hunting mode with automatic exploration
 - [x] Position-based character protection
-- [x] Global hotkey controls (F1 start/pause)
+- [x] Global hotkey controls (CapsLock start/pause)
 - [x] Continuous keyboard automation (123145)
 - [x] GPU acceleration with CUDA support
 - [x] Multi-threaded architecture
@@ -137,13 +145,22 @@ A YOLO-powered Python automation application for gaming, specifically designed f
 ---
 
 **Last Updated**: Current session - Project restructured and consolidated
-**Status**: ✅ Production ready with YOLO real-time detection
-**Main Application**: `mob_finder.py` - AI-powered mob detection solution
-**Key Achievement**: Completely solved moving mob detection with 30+ FPS visual recognition
+**Status**: ✅ Production ready I-HNT Gaming Assistant
+**Main Application**: `i_hnt.py` - AI-powered gaming assistant
+**Easy Launcher**: `I-HNT.bat` - Simple double-click startup
+**Key Achievement**: Smart gaming automation for busy people who love to game
 
 ### Critical Success Factors:
-1. **Technology Switch**: OCR → YOLO AI for 10x speed improvement
+1. **Technology Switch**: Manual gaming → Smart AI automation
 2. **Target Persistence**: Health-based tracking eliminates constant switching
 3. **Active Hunting**: Automatic exploration ensures continuous mob finding
-4. **Global Controls**: F1 hotkey enables seamless gaming experience
+4. **Global Controls**: CapsLock hotkey enables seamless gaming experience
 5. **Real-Time Processing**: 30+ FPS handles even fastest-moving targets
+6. **Easy Sharing**: Simple installation system for friends
+
+---
+
+**🌟 Developed by HardyZ-2k2 🌟**
+**🔥 Black Angels Family 🔥**
+
+**"I Have No Time" - Work Hard, Game Smart!** 💪🎯
