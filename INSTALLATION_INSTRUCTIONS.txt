@@ -1,0 +1,171 @@
+🎯 I-HNT Gaming Assistant - Installation Instructions
+====================================================
+
+"I Have No Time" - Work Hard, Game Smart! 💪
+
+This guide will help you install Python, OpenCV, and all required dependencies
+for the I-HNT Gaming Assistant. Follow these steps carefully.
+
+📋 SYSTEM REQUIREMENTS
+======================
+- Windows 10/11
+- 4GB+ RAM
+- Administrator rights (for Python installation)
+
+🔧 STEP 1: INSTALL PYTHON
+=========================
+
+Option A: Using Official Python Website (Recommended)
+----------------------------------------------------
+1. Open your web browser and go to: https://www.python.org/downloads/
+2. Click "Download Python 3.11.x" (latest version)
+3. Run the downloaded installer
+4. ⚠️ IMPORTANT: Check "Add Python to PATH" checkbox
+5. Click "Install Now"
+6. Wait for installation to complete
+7. Click "Close"
+
+Option B: Using Microsoft Store (Alternative)
+--------------------------------------------
+1. Open Microsoft Store
+2. Search for "Python 3.11"
+3. Click "Install"
+4. Wait for installation to complete
+
+🔍 VERIFY PYTHON INSTALLATION
+=============================
+
+Open Command Prompt or PowerShell:
+1. Press Windows + R
+2. Type "cmd" and press Enter (for Command Prompt)
+   OR type "powershell" and press Enter (for PowerShell)
+3. Type: python --version
+4. You should see: Python 3.11.x
+5. If you get "command not found", Python is not in PATH
+
+🛠️ STEP 2: INSTALL PACKAGE MANAGER (PIP)
+========================================
+
+Pip usually comes with Python, but let's verify:
+1. In Command Prompt/PowerShell, type: pip --version
+2. If you see a version number, pip is installed
+3. If not, download get-pip.py from: https://bootstrap.pypa.io/get-pip.py
+4. Run: python get-pip.py
+
+📦 STEP 3: INSTALL I-HNT DEPENDENCIES
+====================================
+
+Navigate to the I-HNT folder:
+1. Open Command Prompt or PowerShell
+2. Type: cd "C:\Users\ayats\SRO Fun\Mouse Mover"
+   (Replace with your actual folder path)
+3. Press Enter
+
+Install all required packages:
+1. Type: pip install -r requirements.txt
+2. Press Enter
+3. Wait for all packages to install (this may take 5-10 minutes)
+
+Alternative - Install packages individually:
+1. pip install ultralytics>=8.0.0
+2. pip install opencv-python>=4.8.0
+3. pip install pyautogui>=0.9.54
+4. pip install mss>=9.0.1
+5. pip install numpy>=1.24.0
+6. pip install pynput>=1.7.6
+
+🔍 STEP 4: VERIFY INSTALLATION
+==============================
+
+Test if everything is working:
+1. In Command Prompt/PowerShell, navigate to I-HNT folder
+2. Type: python i_hnt.py
+3. If the application starts without errors, installation is successful!
+
+📋 REQUIRED PACKAGES EXPLANATION
+================================
+
+- ultralytics: YOLO AI for real-time object detection
+- opencv-python: Computer vision and image processing
+- pyautogui: Mouse and keyboard automation
+- mss: Ultra-fast screen capture
+- numpy: Numerical operations (required by OpenCV and YOLO)
+- pynput: Global hotkey controls
+
+🚀 STEP 5: RUN I-HNT GAMING ASSISTANT
+====================================
+
+Method 1: Using Start_IHNT.bat (Recommended)
+--------------------------------------------
+1. Double-click "Start_IHNT.bat"
+2. The application will start automatically
+
+Method 2: Using Command Line
+----------------------------
+1. Open Command Prompt or PowerShell
+2. Navigate to I-HNT folder: cd "C:\Users\ayats\SRO Fun\Mouse Mover"
+3. Type: python i_hnt.py
+4. Press Enter
+
+🎮 GAME CONTROLS
+================
+- Focus your game window
+- Press CapsLock to start/pause hunting
+- Press Ctrl+C in terminal to exit
+
+🛠️ TROUBLESHOOTING
+==================
+
+Problem: "python is not recognized"
+Solution: Python is not in PATH
+- Reinstall Python and check "Add Python to PATH"
+- Or manually add Python to PATH in System Environment Variables
+
+Problem: "pip is not recognized"
+Solution: Install pip manually
+- Download get-pip.py from https://bootstrap.pypa.io/get-pip.py
+- Run: python get-pip.py
+
+Problem: "Permission denied" during pip install
+Solution: Run Command Prompt as Administrator
+- Right-click Command Prompt → "Run as administrator"
+- Try pip install again
+
+Problem: "No module named 'cv2'" or similar
+Solution: Package installation failed
+- Try: pip install --upgrade pip
+- Then: pip install -r requirements.txt
+- If still failing, install packages individually
+
+Problem: "CUDA not available" (for GPU acceleration)
+Solution: This is normal if you don't have NVIDIA GPU
+- The application will work with CPU (slower but functional)
+- For GPU acceleration, install NVIDIA drivers and CUDA toolkit
+
+💡 PERFORMANCE TIPS
+===================
+- Close unnecessary programs to free up RAM
+- Use a dedicated graphics card for better performance
+- Ensure stable internet connection for YOLO model downloads
+- Run as Administrator if hotkeys don't work
+
+🔒 SAFETY NOTES
+===============
+- Use responsibly and follow game terms of service
+- Built-in character protection is active
+- Easy shutdown options available
+- No game modification - only screen reading and input simulation
+
+📞 SUPPORT
+==========
+If you encounter issues:
+1. Check this troubleshooting section
+2. Verify all packages are installed correctly
+3. Ensure Python and pip are working
+4. Check Windows compatibility
+
+🌟 Developed by HardyZ-2k2 - Black Angels Family 🔥
+"I Have No Time" - Work Hard, Game Smart! 💪
+
+Happy Gaming! 🎮
+
