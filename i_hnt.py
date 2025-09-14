@@ -42,7 +42,14 @@ class IHNTMobFinder:
         self.detection_pause_duration = 6.0  # 6 seconds detection pause when fighting
         
         # Zone-based hunting system
-        self.hunting_zone_radius = 300  # Smaller focused zone around character
+        self.hunting_zone_radius = 300  # Default medium area (spear)
+        self.detection_area_presets = {
+            'sword': 150,    # Small area for close combat
+            'spear': 300,    # Medium area for mid-range (default)
+            'bow': 500,      # Large area for long-range
+            'custom': 300    # Custom area (user-defined)
+        }
+        self.current_weapon_type = 'spear'  # Default weapon type
         self.last_mob_seen_time = None
         self.hunting_delay = 2.0  # Wait 2 seconds before moving
         self.movement_click_delay = 1.0  # Delay between movement clicks
@@ -51,6 +58,15 @@ class IHNTMobFinder:
         self.paused = False
         self.hotkey_listener = None
         self.hotkeys_active = False
+        
+        # Death detection system
+        self.player_dead = False
+        self.death_detection_active = True
+        self.death_action = "resurrect"  # "resurrect" or "wait_help"
+        self.auto_handle_death = False  # Set to True to automatically click death buttons
+        self.death_handling_mode = None  # Will be set during startup
+        self.auto_res_scroll_slot = "0"  # Default slot for auto-res scroll
+        self.death_debug_mode = False  # Enable debug output for death detection
         
         # I-HNT AI optimized settings for speed
         self.conf_threshold = 0.25      # Confidence threshold
@@ -80,6 +96,13 @@ class IHNTMobFinder:
         print("🎬 Entertainment: Movie queued for breaks")
         print("🎯 Gaming Mode: Intelligent assistance enabled")
         print("🛡️ Safety: Character protection active")
+        print("💀 Death Detection: Player death monitoring enabled")
+        print(f"   Auto-handle death: {'ON' if self.auto_handle_death else 'OFF'}")
+        if self.death_handling_mode:
+            print(f"   Death handling mode: {self.death_handling_mode}")
+            if self.death_handling_mode == "wait_help":
+                print(f"   Auto-res scroll slot: {self.auto_res_scroll_slot}")
+        print(f"🎯 Detection Area: {self.current_weapon_type.title()} - {self.hunting_zone_radius}px radius")
         print("⚡ Performance: Optimized for smooth gameplay")
         print("🎮 Control: CapsLock hotkey ready")
         
@@ -164,8 +187,10 @@ class IHNTMobFinder:
             gray = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2GRAY)
             
             # Look for dark rectangles (health bar backgrounds) and any UI elements
-            dark_pixels = cv2.countNonZero(gray < 100)  # Dark UI elements
-            bright_pixels = cv2.countNonZero(gray > 150) # Bright UI elements (text, borders)
+            dark_mask = gray < 100
+            bright_mask = gray > 150
+            dark_pixels = np.sum(dark_mask)  # Dark UI elements
+            bright_pixels = np.sum(bright_mask) # Bright UI elements (text, borders)
             
             # Health bar present if we have UI elements (dark background or bright text/borders)
             has_health_bar = (dark_pixels > 100) or (bright_pixels > 50) or has_red_health
@@ -189,6 +214,139 @@ class IHNTMobFinder:
         except Exception as e:
             print(f"   ⚠️ Health bar detection error: {e}")
             return {'has_health_bar': False, 'has_red_health': False}
+    
+    def detect_player_death(self):
+        """Detect if player has died by looking for confirmation window in center of screen"""
+        try:
+            # Death confirmation window appears in center of screen
+            # Use a much larger area to catch the window reliably
+            death_window_area = {
+                'top': 100,     # Even larger area
+                'left': 200,    # Even larger area
+                'width': 1520,  # Almost full width
+                'height': 880   # Almost full height
+            }
+            
+            # Capture death window area
+            with mss.mss() as sct:
+                death_screenshot = sct.grab(death_window_area)
+            death_img = np.array(death_screenshot)
+            
+            # Convert to RGB for processing
+            death_rgb = cv2.cvtColor(death_img, cv2.COLOR_BGRA2RGB)
+            
+            # Convert to grayscale for analysis
+            gray = cv2.cvtColor(death_rgb, cv2.COLOR_RGB2GRAY)
+            
+            # VERY aggressive detection - look for ANY dark areas
+            very_dark_mask = gray < 60
+            dark_mask = gray < 100
+            bright_mask = gray > 150
+            
+            very_dark_pixels = np.sum(very_dark_mask)   # Very dark pixels
+            dark_pixels = np.sum(dark_mask)             # Dark pixels
+            bright_pixels = np.sum(bright_mask)         # Bright pixels (text)
+            
+            total_pixels = gray.shape[0] * gray.shape[1]
+            very_dark_ratio = very_dark_pixels / total_pixels
+            dark_ratio = dark_pixels / total_pixels
+            bright_ratio = bright_pixels / total_pixels
+            
+            # Balanced detection - strict enough to avoid false positives, sensitive enough for real deaths
+            has_dark_area = very_dark_ratio > 0.08 or dark_ratio > 0.2
+            
+            if has_dark_area:
+                # Balanced text check
+                has_text = bright_ratio > 0.005  # At least 0.5% bright pixels (text)
+                
+                if has_text:
+                    print(f"💀 PLAYER DEATH DETECTED: Confirmation window found!")
+                    print(f"   Very dark: {very_dark_ratio:.2f}, Dark: {dark_ratio:.2f}, Bright: {bright_ratio:.2f}")
+                    return True
+                else:
+                    # Dark area but no text - might be other UI
+                    return False
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"   ⚠️ Death detection error: {e}")
+            return False
+    
+    def handle_death_confirmation(self, mode=None):
+        """Handle death confirmation window actions based on configured mode"""
+        try:
+            if mode is None:
+                mode = self.death_handling_mode
+            
+            print(f"   🔍 Death handling mode: {mode}")
+            
+            if mode == "respawn_town":
+                # Mode 1: Respawn at town - click left button and pause app
+                resurrect_button_x = self.screen_width // 2 - 150  # Left side of center
+                resurrect_button_y = self.screen_height // 2 + 200  # Below center
+                
+                print(f"💀 Mode 1: Clicking 'Resurrect at the specified point' button at ({resurrect_button_x}, {resurrect_button_y})")
+                pyautogui.click(resurrect_button_x, resurrect_button_y)
+                print("   ✅ Click executed")
+                
+                # Wait for resurrection to complete
+                print("   ⏳ Waiting 3 seconds for resurrection...")
+                time.sleep(3)
+                
+                # Reset death state before pausing
+                print("🔄 Resetting death state...")
+                self.player_dead = False
+                self.death_detection_active = False
+                self.detection_paused = False  # Ensure detection is not paused
+                
+                # Pause the app after resurrection (no F1 needed for town respawn)
+                print("⏸️ Pausing I-HNT app after town resurrection...")
+                self.paused = True
+                self.keyboard_active = False
+                print("💀 Character respawned at town - I-HNT is paused. Press CapsLock to resume hunting.")
+                return True
+                
+            elif mode == "wait_help":
+                # Mode 2: Wait for other players - click right button, press F4, use auto-res scroll
+                wait_button_x = self.screen_width // 2 + 150  # Right side of center
+                wait_button_y = self.screen_height // 2 + 200  # Below center
+                
+                print(f"💀 Mode 2: Clicking 'Waiting for other player's help' button at ({wait_button_x}, {wait_button_y})")
+                pyautogui.click(wait_button_x, wait_button_y)
+                print("   ✅ Click executed")
+                
+                # Wait for window to close
+                print("   ⏳ Waiting 2 seconds for window to close...")
+                time.sleep(2)
+                
+                # Press F4 to open inventory/skills
+                print("💀 Pressing F4 to open inventory...")
+                pyautogui.press('f4')
+                time.sleep(1)
+                
+                # Press "0" to use auto-res scroll
+                print("💀 Using auto-res scroll from slot 0...")
+                pyautogui.press('0')
+                time.sleep(2)
+                
+                # Press F4 again to close inventory
+                print("💀 Pressing F4 to close inventory...")
+                pyautogui.press('f4')
+                time.sleep(1)
+                
+                # Press F1 to switch back to game
+                print("🎮 Pressing F1 to switch back to game...")
+                pyautogui.press('f1')
+                time.sleep(0.5)
+                
+                print("✨ Auto-res scroll used - continuing hunting as usual")
+                
+                return True
+                
+        except Exception as e:
+            print(f"   ❌ Death confirmation action failed: {e}")
+            return False
     
     def should_switch_target(self):
         """Determine if we should switch to a new target based on health monitoring ONLY"""
@@ -302,6 +460,10 @@ class IHNTMobFinder:
             try:
                 if key == Key.caps_lock:
                     self.handle_capslock_toggle()
+                elif str(key) == 'Key.f2':
+                    self.manual_death_test()
+                elif str(key) == 'Key.f3':
+                    self.cycle_detection_area()
             except Exception as e:
                 print(f"⚠️ Hotkey error: {e}")
         
@@ -313,6 +475,8 @@ class IHNTMobFinder:
             self.hotkeys_active = True
             print("🎮 Global hotkeys activated!")
             print("   CapsLock = Start/Pause Toggle")
+            print("   F2 = Manual Death Detection Test")
+            print("   F3 = Cycle Detection Area (Sword→Spear→Bow→Custom)")
             return True
         except Exception as e:
             print(f"❌ Failed to setup hotkeys: {e}")
@@ -336,6 +500,40 @@ class IHNTMobFinder:
             self.paused = True
             self.keyboard_active = False  # Pause keyboard automation
     
+    def manual_death_test(self):
+        """Manually test death detection"""
+        print("\n🧪 MANUAL DEATH DETECTION TEST")
+        print("=" * 40)
+        if self.detect_player_death():
+            print("💀 Death window detected!")
+            print("Testing death handling...")
+            if self.auto_handle_death and self.death_handling_mode:
+                success = self.handle_death_confirmation()
+                if success:
+                    print("✅ Death handling test successful")
+                else:
+                    print("❌ Death handling test failed")
+            else:
+                print("⚠️ Auto-handle death is disabled or mode not set")
+        else:
+            print("✅ No death window detected")
+        print("=" * 40)
+    
+    def cycle_detection_area(self):
+        """Cycle through detection area presets"""
+        weapon_types = ['sword', 'spear', 'bow', 'custom']
+        current_index = weapon_types.index(self.current_weapon_type)
+        next_index = (current_index + 1) % len(weapon_types)
+        
+        self.current_weapon_type = weapon_types[next_index]
+        self.hunting_zone_radius = self.detection_area_presets[self.current_weapon_type]
+        
+        print(f"\n🎯 DETECTION AREA CHANGED")
+        print("=" * 30)
+        print(f"   New weapon type: {self.current_weapon_type.title()}")
+        print(f"   New radius: {self.hunting_zone_radius}px")
+        print("=" * 30)
+    
     
     def cleanup_hotkeys(self):
         """Cleanup hotkey listener"""
@@ -347,6 +545,97 @@ class IHNTMobFinder:
             except:
                 pass
     
+    def setup_death_handling(self):
+        """Setup death handling preferences"""
+        print("\n💀 DEATH HANDLING CONFIGURATION")
+        print("=" * 40)
+        print("When your character dies, how should I-HNT handle it?")
+        print("1. Respawn at town - Click 'Resurrect at the specified point' and pause app")
+        print("2. Wait for other players - Click 'Waiting for other player's help', press F4, then use auto-res scroll")
+        print()
+        
+        while True:
+            try:
+                choice = input("Enter your choice (1 or 2): ").strip()
+                if choice == "1":
+                    self.death_handling_mode = "respawn_town"
+                    self.auto_handle_death = True
+                    break
+                elif choice == "2":
+                    self.death_handling_mode = "wait_help"
+                    self.auto_handle_death = True
+                    self.auto_res_scroll_slot = "0"  # Default to slot 0
+                    break
+                else:
+                    print("❌ Please enter 1 or 2")
+            except KeyboardInterrupt:
+                print("\n⏹️ Setup cancelled")
+                self.death_handling_mode = "respawn_town"  # Default
+                self.auto_handle_death = True
+                break
+        
+        print("💀 Death handling configured successfully!")
+        print("=" * 40)
+    
+    def setup_detection_area(self):
+        """Setup detection area based on weapon type"""
+        print("\n🎯 DETECTION AREA CONFIGURATION")
+        print("=" * 40)
+        print("Choose your weapon type for optimal hunting area:")
+        print("1. Sword - Small area (150px radius) - Close combat")
+        print("2. Spear - Medium area (300px radius) - Mid-range (default)")
+        print("3. Bow - Large area (500px radius) - Long-range")
+        print("4. Custom - Enter your own radius")
+        print()
+        
+        while True:
+            try:
+                choice = input("Enter your choice (1-4, default 2): ").strip()
+                if choice == "" or choice == "2":
+                    self.current_weapon_type = "spear"
+                    self.hunting_zone_radius = self.detection_area_presets['spear']
+                    print("✅ Selected: Spear - Medium area (300px radius)")
+                    break
+                elif choice == "1":
+                    self.current_weapon_type = "sword"
+                    self.hunting_zone_radius = self.detection_area_presets['sword']
+                    print("✅ Selected: Sword - Small area (150px radius)")
+                    break
+                elif choice == "3":
+                    self.current_weapon_type = "bow"
+                    self.hunting_zone_radius = self.detection_area_presets['bow']
+                    print("✅ Selected: Bow - Large area (500px radius)")
+                    break
+                elif choice == "4":
+                    self.current_weapon_type = "custom"
+                    while True:
+                        try:
+                            radius = input("Enter custom radius (50-800 pixels): ").strip()
+                            if radius.isdigit():
+                                radius_int = int(radius)
+                                if 50 <= radius_int <= 800:
+                                    self.hunting_zone_radius = radius_int
+                                    self.detection_area_presets['custom'] = radius_int
+                                    print(f"✅ Selected: Custom area ({radius_int}px radius)")
+                                    break
+                                else:
+                                    print("❌ Please enter a radius between 50-800 pixels")
+                            else:
+                                print("❌ Please enter a valid number")
+                        except ValueError:
+                            print("❌ Please enter a valid number")
+                    break
+                else:
+                    print("❌ Please enter 1, 2, 3, or 4")
+            except KeyboardInterrupt:
+                print("\n⏹️ Setup cancelled - using default (Spear)")
+                self.current_weapon_type = "spear"
+                self.hunting_zone_radius = self.detection_area_presets['spear']
+                break
+        
+        print(f"🎯 Detection area configured: {self.current_weapon_type.title()} - {self.hunting_zone_radius}px radius")
+        print("=" * 40)
+    
     def setup_smart_targeting(self):
         """Setup smart pet ignoring system"""
         print("\n🎯 SMART TARGETING SYSTEM")
@@ -354,6 +643,7 @@ class IHNTMobFinder:
         print("🐕 Pet Detection: Automatically ignores pets using pet cards")
         print("🎯 Mob Targeting: Targets all detected mobs without restrictions")
         print("🧠 Smart Logic: Detects pet cards and switches to next target")
+        print("💀 Death Detection: Monitors for player death confirmation window")
         print("✅ Ready for unrestricted hunting!")
         
         # Clear any old protection names since we're not using them
@@ -621,6 +911,8 @@ class IHNTMobFinder:
         print("   • Instant targeting without OCR delays")
         print("   • Simultaneous multi-mob detection")
         print("   • Position-based character protection")
+        print("   • Player death detection and handling")
+        print(f"   • Configurable detection area ({self.current_weapon_type.title()} - {self.hunting_zone_radius}px)")
         print("=" * 50)
         
         self.monitoring_active = True
@@ -631,6 +923,11 @@ class IHNTMobFinder:
         keyboard_thread = threading.Thread(target=self.continuous_keyboard_automation, daemon=True)
         keyboard_thread.start()
         
+        # Wait 5 seconds before starting death detection to avoid false positives
+        print("⏳ Waiting 5 seconds before starting death detection...")
+        time.sleep(5)
+        print("✅ Death detection now active")
+        
         try:
             while self.monitoring_active and not self.stop_requested:
                 loop_start = time.time()
@@ -640,6 +937,54 @@ class IHNTMobFinder:
                     print("⏸️ Detection paused - press CapsLock to resume")
                     time.sleep(1)
                     continue
+                
+                # Check if player has died (priority check)
+                if self.death_detection_active:
+                    if self.detect_player_death():
+                        if not self.player_dead:
+                            self.player_dead = True
+                            print("💀 PLAYER DEATH CONFIRMED - Stopping all actions!")
+                            
+                            # Handle death confirmation based on configured mode
+                            print(f"   🔍 Debug: auto_handle_death={self.auto_handle_death}, death_handling_mode={self.death_handling_mode}")
+                            if self.auto_handle_death and self.death_handling_mode:
+                                print(f"   🤖 Auto-handling death confirmation: {self.death_handling_mode}")
+                                success = self.handle_death_confirmation()
+                                if success:
+                                    print("   ✅ Death confirmation handled successfully")
+                                    # Death handling completed successfully, resume normal detection
+                                    self.player_dead = False
+                                    self.detection_paused = False
+                                    self.keyboard_active = True
+                                    print("🔄 Resuming normal hunting after death handling...")
+                                    # Continue to normal detection loop (don't continue to death checking)
+                                else:
+                                    print("   ❌ Death confirmation handling failed")
+                                    # Stop all hunting activities on failure
+                                    self.keyboard_active = False
+                                    self.detection_paused = True
+                                    # Continue checking for death window to disappear
+                                    time.sleep(1)
+                                    continue
+                            else:
+                                print("   ⏳ Waiting for player to handle death confirmation...")
+                                print("   💡 Tip: Configure death handling mode at startup")
+                                # Stop all hunting activities
+                                self.keyboard_active = False
+                                self.detection_paused = True
+                                # Continue checking for death window to disappear
+                                time.sleep(1)
+                                continue
+                        else:
+                            # Player is still dead, continue checking for death window to disappear
+                            time.sleep(1)
+                            continue
+                    elif self.player_dead:
+                        # Player was dead but death window is gone - player has been resurrected
+                        self.player_dead = False
+                        print("✨ PLAYER RESURRECTED - Resuming hunting activities!")
+                        self.keyboard_active = True
+                        self.detection_paused = False
                 
                 # Check if detection is paused (when fighting a mob with red health)
                 if self.is_detection_paused():
@@ -746,6 +1091,12 @@ def main():
     # Create I-HNT hunter
     i_hnt = IHNTMobFinder()
     
+    # Setup death handling preferences
+    i_hnt.setup_death_handling()
+    
+    # Setup detection area configuration
+    i_hnt.setup_detection_area()
+    
     # Setup smart targeting system
     i_hnt.setup_smart_targeting()
     
@@ -763,10 +1114,13 @@ def main():
         print("=" * 40)
         print("🎯 CONTROLS:")
         print("   CapsLock = Start/Pause Toggle")
+        print("   F2 = Manual Death Detection Test")
+        print("   F3 = Cycle Detection Area (Sword→Spear→Bow→Custom)")
         print("   Ctrl+C = Emergency exit")
         print("=" * 40)
         print("💡 Focus your GAME WINDOW and press CapsLock to start!")
         print("💡 Press CapsLock again to pause/resume anytime!")
+        print("💡 Press F3 to change detection area for different weapons!")
         print("💡 All hotkeys work globally (no need to focus terminal)")
         
         # Keep main thread alive for hotkeys
