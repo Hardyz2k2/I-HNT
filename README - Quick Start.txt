@@ -12,9 +12,10 @@
 🚀 STARTING I-HNT:
 -----------------
 1. Double-click "I-HNT.bat" 
-2. Follow the on-screen setup
-3. Focus your game window
-4. Press CapsLock to start hunting!
+2. Choose your detection area size (Small/Medium/Large/Extra Large)
+3. Follow the on-screen setup
+4. Focus your game window
+5. Press CapsLock to start hunting!
 
 🎮 CONTROLS:
 -----------
@@ -47,6 +48,15 @@
 - Active hunting when no mobs visible
 - Character protection system
 - Global hotkey controls
+- Variable detection area (size-based)
+
+📏 DETECTION AREA SIZES:
+-----------------------
+- 🔸 SMALL: 200px radius (safe, controlled)
+- 🔹 MEDIUM: 250px radius (balanced)
+- 🔷 LARGE: 350px radius (aggressive)
+- 🔵 EXTRA LARGE: 400px radius (maximum efficiency)
+- 🎯 CUSTOM: Your preferred size (150-500px)
 
 ====================================================
 🌟 Developed by HardyZ-2k2

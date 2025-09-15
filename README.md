@@ -70,6 +70,37 @@ Status: All mobs within 150px of center are ignored
 🛡️ Will avoid: Any detection within 150px of character
 ```
 
+## 📏 Variable Detection Area
+
+### Size-Based Detection Zones
+- **🔸 SMALL (200px)**: Safe and controlled hunting, pulls 1-2 mobs
+- **🔹 MEDIUM (250px)**: Balanced approach, pulls 2-3 mobs  
+- **🔷 LARGE (350px)**: Aggressive hunting, pulls 3-4 mobs
+- **🔵 EXTRA LARGE (400px)**: Maximum efficiency, pulls 4+ mobs
+- **🎯 CUSTOM**: Manual input between 150-500px for precise control
+
+### Smart Configuration
+- **Automatic Setup**: Choose your detection size at startup
+- **Preference Saving**: Remembers your choice for next session
+- **Visual Preview**: ASCII diagram shows your hunting area from above
+- **Easy Switching**: Delete `detection_size.txt` to reconfigure
+
+### Example Detection Area
+```
+📍 DETECTION ZONE (viewed from above):
+    ··················
+   ·                ·
+  ·  Detection Zone  ·
+ ·   350px radius    ·
+  ·      🧙 YOU      ·
+ ·  150px safe zone  ·
+  ·                ·
+   ·              ·
+    ··············
+
+Strategy: Pull 3-4 mobs, aggressive hunting
+```
+
 ## ⚙️ Configuration Options
 
 ### YOLO Model Configuration

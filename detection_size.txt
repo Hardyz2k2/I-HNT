@@ -1,0 +1,3 @@
+# I-HNT Detection Area Size
+size_choice=1
+radius=200
