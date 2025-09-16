@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 ### 2. Run with Pretrained Model (for testing)
 ```bash
-python mob_finder.py
+python i_hnt.py
 ```
 *Note: Pretrained model won't detect mobs perfectly - you need custom training*
 
@@ -111,7 +111,7 @@ Training takes 1-4 hours depending on:
 
 ### Step 4: Use Trained Model
 ```bash
-# Edit mob_finder.py and change model path to your trained model
+# Edit i_hnt.py and change model path to your trained model
 # Usually: runs/train/weights/best.pt
 ```
 
@@ -215,7 +215,7 @@ This INTELLIGENT YOLO version **completely solves**:
 
 ### Quick Start Command:
 ```bash
-python mob_finder.py
+python i_hnt.py
 ```
 
 **This version perfectly solves all your issues PLUS adds convenient global hotkey control!** 🧠⚡🎮🎯
@@ -223,16 +223,16 @@ python mob_finder.py
 ## 🎮 **GLOBAL HOTKEY CONTROLS**
 
 ### **Instant Control Without Terminal Focus:**
-- **F1** = Start/Pause/Resume detection (works anywhere)
+- **CapsLock** = Start/Pause/Resume detection (works anywhere)
 
 ### **How to Use Hotkeys:**
-1. Run `python mob_finder.py`
+1. Run `python i_hnt.py`
 2. **Focus your game window** (important!)
-3. Press **F1** to start detection
-4. Press **F1** again to pause/resume - **no need to switch back to terminal!**
+3. Press **CapsLock** to start detection
+4. Press **CapsLock** again to pause/resume - **no need to switch back to terminal!**
 5. Use **Ctrl+C** in terminal to stop completely when done
 
 ### **Benefits:**
 - 🎮 **No window switching** - stay focused on your game
-- ⚡ **Instant control** - pause/resume with F1
+- ⚡ **Instant control** - pause/resume with CapsLock
 - 🛡️ **Safe operation** - emergency stop with Ctrl+C
