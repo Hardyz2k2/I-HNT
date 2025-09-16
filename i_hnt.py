@@ -42,10 +42,33 @@ class IHNTMobFinder:
         self.detection_pause_duration = 6.0  # 6 seconds detection pause when fighting
         
         # Zone-based hunting system
-        self.hunting_zone_radius = 300  # Smaller focused zone around character
+        self.hunting_zone_radius = 300  # Default medium area (spear)
+        self.detection_area_presets = {
+            'sword': 150,    # Small area for close combat
+            'spear': 300,    # Medium area for mid-range (default)
+            'bow': 500,      # Large area for long-range
+            'custom': 300    # Custom area (user-defined)
+        }
+        self.current_weapon_type = 'spear'  # Default weapon type
         self.last_mob_seen_time = None
-        self.hunting_delay = 2.0  # Wait 2 seconds before moving
+        self.hunting_delay = 1.0  # Wait 1 second before moving (faster response)
         self.movement_click_delay = 1.0  # Delay between movement clicks
+        
+        # Systematic boundary exploration system
+        self.current_direction = 0.0  # Current angle in radians
+        self.direction_attempts = 0   # Number of attempts in current direction
+        self.max_attempts_per_direction = 2  # Try each direction twice before moving to next
+        self.direction_increment = 45.0  # Degrees between directions (8 directions total)
+        
+        # Camera angle adjustment system
+        self.movement_count = 0  # Track number of movements made
+        self.movements_before_camera_adjust = 2  # Adjust camera after 2 movements
+        self.camera_drag_duration = 1.0  # Hold right-click drag for 1 second
+        self.camera_direction = 1  # 1 for right, -1 for left (alternates)
+        
+        # Movement validation system
+        self.min_movement_distance = 400  # Minimum distance from character for effective movement
+        self.use_edge_positions = True  # Use screen edge positions for maximum movement
         
         # Global hotkey controls
         self.paused = False
@@ -239,51 +262,146 @@ class IHNTMobFinder:
         print(f"   🎯 New target locked: {target['screen_position']} (conf: {target['confidence']:.2f})")
     
     def generate_movement_position(self):
-        """Generate random position within hunting zone for character movement"""
-        import random
+        """Generate effective movement position with validation to avoid small steps"""
         import math
         
         # Character position (center of screen)
         char_x, char_y = self.screen_width // 2, self.screen_height // 2
         
-        # Generate random position within hunting zone for movement
-        angle = random.uniform(0, 2 * math.pi)  # 0 to 2π radians
-        # Use smaller distance for movement (stay within zone)
-        distance = random.uniform(100, self.hunting_zone_radius * 0.8)  # 80% of zone radius
+        if self.use_edge_positions:
+            # Use screen edge positions for MAXIMUM movement distance
+            edge_positions = [
+                (char_x, 150),  # North - top edge
+                (self.screen_width - 150, char_y),  # East - right edge  
+                (char_x, self.screen_height - 150),  # South - bottom edge
+                (150, char_y),  # West - left edge
+                (self.screen_width - 200, 200),  # NE - top-right corner
+                (self.screen_width - 200, self.screen_height - 200),  # SE - bottom-right
+                (200, self.screen_height - 200),  # SW - bottom-left
+                (200, 200),  # NW - top-left corner
+            ]
+            
+            # Calculate which edge position to use based on current direction
+            direction_index = int((math.degrees(self.current_direction) / 45) % 8)
+            move_x, move_y = edge_positions[direction_index]
+            
+        else:
+            # Use systematic boundary approach with larger radius
+            angle = self.current_direction
+            distance = self.hunting_zone_radius  # 300 pixels
+            
+            # Calculate position at zone boundary
+            move_x = int(char_x + distance * math.cos(angle))
+            move_y = int(char_y + distance * math.sin(angle))
+            
+            # Ensure within screen bounds
+            move_x = max(150, min(move_x, self.screen_width - 150))
+            move_y = max(150, min(move_y, self.screen_height - 150))
         
-        # Calculate position
-        move_x = int(char_x + distance * math.cos(angle))
-        move_y = int(char_y + distance * math.sin(angle))
+        # CRITICAL: Validate movement distance to prevent small steps
+        actual_distance = math.sqrt((move_x - char_x)**2 + (move_y - char_y)**2)
         
-        # Ensure within screen bounds and zone
-        move_x = max(char_x - self.hunting_zone_radius, min(move_x, char_x + self.hunting_zone_radius))
-        move_y = max(char_y - self.hunting_zone_radius, min(move_y, char_y + self.hunting_zone_radius))
+        if actual_distance < self.min_movement_distance:
+            print(f"   ⚠️ Movement too small ({actual_distance:.0f}px) - forcing edge position")
+            # Force to screen edge for maximum movement
+            if self.current_direction < math.pi / 2:  # 0-90 degrees
+                move_x, move_y = self.screen_width - 150, 150  # Top-right edge
+            elif self.current_direction < math.pi:  # 90-180 degrees  
+                move_x, move_y = self.screen_width - 150, self.screen_height - 150  # Bottom-right
+            elif self.current_direction < 3 * math.pi / 2:  # 180-270 degrees
+                move_x, move_y = 150, self.screen_height - 150  # Bottom-left
+            else:  # 270-360 degrees
+                move_x, move_y = 150, 150  # Top-left
+            
+            actual_distance = math.sqrt((move_x - char_x)**2 + (move_y - char_y)**2)
         
-        # Final screen boundary check
-        move_x = max(100, min(move_x, self.screen_width - 100))
-        move_y = max(100, min(move_y, self.screen_height - 100))
+        # Update direction system for next movement
+        self.direction_attempts += 1
+        
+        if self.direction_attempts >= self.max_attempts_per_direction:
+            # Move to next direction after trying current direction twice
+            self.direction_attempts = 0
+            self.current_direction += math.radians(self.direction_increment)
+            
+            # Reset to 0 after full circle (8 directions * 45° = 360°)
+            if self.current_direction >= 2 * math.pi:
+                self.current_direction = 0.0
+                
+        direction_degrees = math.degrees(self.current_direction) if self.current_direction >= 0 else math.degrees(self.current_direction) + 360
+        attempt_num = self.direction_attempts
+        
+        print(f"   🧭 Direction: {direction_degrees:.0f}° (attempt {attempt_num}/{self.max_attempts_per_direction})")
+        print(f"   📏 Movement distance: {actual_distance:.0f}px (min: {self.min_movement_distance}px)")
+        print(f"   🎯 Target position: ({move_x}, {move_y}) from character ({char_x}, {char_y})")
         
         return (move_x, move_y)
     
+    def adjust_camera_angle(self):
+        """Adjust camera angle by right-click dragging left or right"""
+        try:
+            import time
+            
+            # Get screen center for camera drag
+            center_x, center_y = self.screen_width // 2, self.screen_height // 2
+            
+            # Calculate drag distance (200 pixels left or right)
+            drag_distance = 200 * self.camera_direction
+            drag_end_x = center_x + drag_distance
+            
+            # Ensure drag end position is within screen bounds
+            drag_end_x = max(100, min(drag_end_x, self.screen_width - 100))
+            
+            direction_text = "RIGHT" if self.camera_direction > 0 else "LEFT"
+            print(f"📹 CAMERA ADJUSTMENT: Right-click dragging {direction_text} to change view angle")
+            
+            # Perform right-click drag
+            pyautogui.mouseDown(center_x, center_y, button='right')
+            time.sleep(0.1)  # Brief pause after mouse down
+            
+            # Drag to new position over the duration
+            pyautogui.dragTo(drag_end_x, center_y, duration=self.camera_drag_duration, button='right')
+            
+            # Release right-click
+            pyautogui.mouseUp(button='right')
+            
+            # Alternate direction for next camera adjustment
+            self.camera_direction *= -1
+            
+            print(f"   ✅ Camera angle adjusted - next adjustment will go {'RIGHT' if self.camera_direction > 0 else 'LEFT'}")
+            
+        except Exception as e:
+            print(f"   ❌ Camera adjustment failed: {e}")
+    
     def zone_movement_mode(self):
-        """Move character randomly within hunting zone when no mobs detected"""
+        """Systematically explore zone boundaries when no mobs detected"""
         if self.last_mob_seen_time is None:
             self.last_mob_seen_time = time.time()
             return
         
-        # Check if we should move (2 second delay)
+        # Check if we should move (1 second delay)
         time_since_last_mob = time.time() - self.last_mob_seen_time
         
         if time_since_last_mob >= self.hunting_delay:
-            # Generate random movement position within zone
+            # Generate systematic boundary position for exploration
             move_pos = self.generate_movement_position()
             
-            print(f"🚶 ZONE MOVEMENT: No mobs in zone for {time_since_last_mob:.1f}s - moving to {move_pos}")
+            print(f"🚶 BOUNDARY EXPLORATION: No mobs for {time_since_last_mob:.1f}s - moving to {move_pos}")
             
             try:
-                # Click to move character within zone
+                # Click to move character to zone boundary
                 pyautogui.click(move_pos[0], move_pos[1], button='left')
                 time.sleep(self.movement_click_delay)
+                
+                # Increment movement counter
+                self.movement_count += 1
+                print(f"   📊 Movement count: {self.movement_count}")
+                
+                # Check if we need to adjust camera angle after 2 movements
+                if self.movement_count >= self.movements_before_camera_adjust:
+                    print(f"   🔄 {self.movement_count} movements completed - adjusting camera angle")
+                    time.sleep(0.5)  # Brief pause before camera adjustment
+                    self.adjust_camera_angle()
+                    self.movement_count = 0  # Reset counter after camera adjustment
                 
                 # Reset timer after movement
                 self.last_mob_seen_time = time.time()
