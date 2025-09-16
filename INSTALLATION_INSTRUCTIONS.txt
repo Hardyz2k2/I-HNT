@@ -57,7 +57,7 @@ Pip usually comes with Python, but let's verify:
 
 Navigate to the I-HNT folder:
 1. Open Command Prompt or PowerShell
-2. Type: cd "C:\Users\ayats\SRO Fun\Mouse Mover"
+2. Type: cd "C:\Users\hamza\Documents\SRO Project\Mouse-Mover"
    (Replace with your actual folder path)
 3. Press Enter
 
@@ -103,7 +103,7 @@ Method 1: Using Start_IHNT.bat (Recommended)
 Method 2: Using Command Line
 ----------------------------
 1. Open Command Prompt or PowerShell
-2. Navigate to I-HNT folder: cd "C:\Users\ayats\SRO Fun\Mouse Mover"
+2. Navigate to I-HNT folder: cd "C:\Users\hamza\Documents\SRO Project\Mouse-Mover"
 3. Type: python i_hnt.py
 4. Press Enter
 
@@ -111,6 +111,9 @@ Method 2: Using Command Line
 ================
 - Focus your game window
 - Press CapsLock to start/pause hunting
+- Press F2 for manual death detection test
+- Press F3 to cycle detection area (Sword→Spear→Bow→Custom)
+- Press F4 for emergency mouse unlock (if stuck)
 - Press Ctrl+C in terminal to exit
 
 🛠️ TROUBLESHOOTING

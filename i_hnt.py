@@ -197,13 +197,12 @@ class IHNTMobFinder:
     def detect_health_bar(self):
         """Detect if there's a health bar visible at top center (mob selected) and check for red health line"""
         try:
-            # Health bar area at top center of screen (adjusted for game UI)
-            # Based on the images, health bars appear to be more centered
+            # MUCH smaller, focused health bar area - typical mob health bars are ~200x30 pixels
             health_bar_area = {
-                'top': 20,    # Higher up
-                'left': 600,  # More centered
-                'width': 720, # Wider to catch different positions
-                'height': 80  # Focused height for health bars
+                'top': 30,     # Top area for health bars
+                'left': 860,   # Centered around screen middle (960-100)
+                'width': 200,  # Much smaller width for actual health bars
+                'height': 40   # Smaller height focused on health bars only
             }
             
             # Capture health bar area
@@ -214,18 +213,18 @@ class IHNTMobFinder:
             # Convert to RGB for processing
             health_rgb = cv2.cvtColor(health_img, cv2.COLOR_BGRA2RGB)
             
-            # More aggressive red detection for game UI
+            # More focused red detection for actual health bars
             # Convert to HSV for better red detection
             hsv = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2HSV)
             
-            # Expanded red color ranges for game UI (more permissive)
-            # First red range (around 0 degrees)
-            lower_red1 = np.array([0, 50, 50])      # Very permissive lower bound
-            upper_red1 = np.array([15, 255, 255])   # Wider hue range
+            # More restrictive red color ranges to avoid false positives
+            # First red range (around 0 degrees) - more focused
+            lower_red1 = np.array([0, 80, 80])      # Higher saturation/value
+            upper_red1 = np.array([10, 255, 255])   # Narrower hue range
             
-            # Second red range (around 180 degrees)  
-            lower_red2 = np.array([165, 50, 50])    # Very permissive lower bound
-            upper_red2 = np.array([180, 255, 255])  # Wider hue range
+            # Second red range (around 180 degrees) - more focused
+            lower_red2 = np.array([170, 80, 80])    # Higher saturation/value  
+            upper_red2 = np.array([180, 255, 255])  # Narrower hue range
             
             # Create masks for red detection
             mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
@@ -235,31 +234,35 @@ class IHNTMobFinder:
             # Count red pixels (health line presence)
             red_pixel_count = cv2.countNonZero(red_mask)
             
-            # Much lower threshold - even small amount of red means mob is alive
-            red_health_threshold = 10  # Very sensitive - any red pixels indicate health
-            has_red_health = red_pixel_count > red_health_threshold
+            # MUCH higher threshold - health bars should have significant red pixels
+            # With 200x40 area = 8000 total pixels, a health bar should have 100-1000 red pixels
+            red_health_threshold = 50  # Require substantial red pixels for health detection
+            max_reasonable_red = 2000   # Cap at reasonable amount - if more, it's probably UI noise
             
-            # Check for health bar UI presence by looking for the dark health bar background
+            # Only consider it health if within reasonable range
+            has_red_health = (red_pixel_count > red_health_threshold) and (red_pixel_count < max_reasonable_red)
+            
+            # Check for health bar UI presence by looking for health bar patterns
             gray = cv2.cvtColor(health_rgb, cv2.COLOR_RGB2GRAY)
             
-            # Look for dark rectangles (health bar backgrounds) and any UI elements
-            dark_mask = gray < 100
-            bright_mask = gray > 150
-            dark_pixels = np.sum(dark_mask)  # Dark UI elements
-            bright_pixels = np.sum(bright_mask) # Bright UI elements (text, borders)
+            # Look for horizontal health bar patterns (dark background with bright borders)
+            dark_mask = gray < 60   # Darker threshold for health bar backgrounds
+            bright_mask = gray > 180  # Brighter threshold for health bar borders/text
+            dark_pixels = np.sum(dark_mask)
+            bright_pixels = np.sum(bright_mask)
             
-            # Health bar present if we have UI elements (dark background or bright text/borders)
-            has_health_bar = (dark_pixels > 100) or (bright_pixels > 50) or has_red_health
+            # Health bar present if we have reasonable UI pattern AND reasonable red pixels
+            has_health_bar = has_red_health and (dark_pixels > 50) and (bright_pixels > 10)
             
-            if has_health_bar and has_red_health:
+            # Debug output with filtering for noise
+            if red_pixel_count > max_reasonable_red:
+                print(f"   🚫 TOO MUCH RED: {red_pixel_count} pixels - likely UI noise, ignoring")
+                has_health_bar = False
+                has_red_health = False
+            elif has_health_bar and has_red_health:
                 print(f"   ❤️ HEALTH DETECTED: Mob alive with {red_pixel_count} red pixels - PAUSING DETECTION")
-            elif has_health_bar and not has_red_health:
-                print(f"   💀 HEALTH EMPTY: No red pixels ({red_pixel_count}) - mob dead - RESUMING DETECTION") 
-            elif red_pixel_count > 0:
-                # Any red pixels at all, even if no clear health bar UI
-                print(f"   🩸 RED PIXELS FOUND: {red_pixel_count} red pixels detected - treating as alive")
-                has_health_bar = True
-                has_red_health = True
+            elif red_pixel_count > 0 and red_pixel_count <= red_health_threshold:
+                print(f"   💀 HEALTH LOW: Only {red_pixel_count} red pixels - mob likely dead")
             
             return {
                 'has_health_bar': has_health_bar,
@@ -631,6 +634,8 @@ class IHNTMobFinder:
                     self.manual_death_test()
                 elif str(key) == 'Key.f3':
                     self.cycle_detection_area()
+                elif str(key) == 'Key.f4':
+                    self.emergency_unlock_mouse()
             except Exception as e:
                 print(f"⚠️ Hotkey error: {e}")
         
@@ -644,6 +649,7 @@ class IHNTMobFinder:
             print("   CapsLock = Start/Pause Toggle")
             print("   F2 = Manual Death Detection Test")
             print("   F3 = Cycle Detection Area (Sword→Spear→Bow→Custom)")
+            print("   F4 = Emergency Mouse Unlock (if stuck)")
             return True
         except Exception as e:
             print(f"❌ Failed to setup hotkeys: {e}")
@@ -803,6 +809,27 @@ class IHNTMobFinder:
         
         print(f"🎯 Detection area configured: {self.current_weapon_type.title()} - {self.hunting_zone_radius}px radius")
         print("=" * 40)
+    
+    def emergency_unlock_mouse(self):
+        """Emergency function to unlock mouse if health detection gets stuck"""
+        print("\n🚨 EMERGENCY MOUSE UNLOCK!")
+        print("=" * 40)
+        print("🔓 Forcing mouse unlock...")
+        
+        # Force clear all detection states
+        self.detection_paused = False
+        self.detection_pause_start = None
+        self.current_target = None
+        self.target_selected_time = None
+        
+        # Reset health detection counters (if they exist)
+        if hasattr(self, 'health_detection_stuck_count'):
+            self.health_detection_stuck_count = 0
+        
+        print("✅ Mouse unlocked! Detection resumed.")
+        print("💡 If this happens again, the health detection area may need adjustment")
+        print("=" * 40)
+    
     def setup_smart_targeting(self):
         """Setup smart pet ignoring system"""
         print("\n🎯 SMART TARGETING SYSTEM")
@@ -1420,6 +1447,7 @@ def main():
         print("   CapsLock = Start/Pause Toggle")
         print("   F2 = Manual Death Detection Test")
         print("   F3 = Cycle Detection Area (Sword→Spear→Bow→Custom)")
+        print("   F4 = Emergency Mouse Unlock (if stuck)")
         print("   Ctrl+C = Emergency exit")
         print("=" * 40)
         print("💡 Focus your GAME WINDOW and press CapsLock to start!")
