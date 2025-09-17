@@ -12,6 +12,7 @@ Version: Production Ready
 """
 
 import time
+import math
 import cv2
 import numpy as np
 import mss
@@ -20,13 +21,11 @@ import threading
 from ultralytics import YOLO
 import torch
 from pathlib import Path
-from pynput import keyboard
 from pynput.keyboard import Key, Listener
 
 class IHNTMobFinder:
     def __init__(self):
         self.screen_width, self.screen_height = 1920, 1080
-        self.protected_names = []
         self.model = None
         self.monitoring_active = False
         self.keyboard_active = False
@@ -34,22 +33,13 @@ class IHNTMobFinder:
         
         # Target persistence tracking (health-based only)
         self.current_target = None
-        self.target_selected_time = None
         
         # Detection pause system
         self.detection_paused = False
         self.detection_pause_start = None
-        self.detection_pause_duration = 6.0  # 6 seconds detection pause when fighting
         
         # Zone-based hunting system
         self.hunting_zone_radius = 300  # Default medium area (spear)
-        self.detection_area_presets = {
-            'sword': 150,    # Small area for close combat
-            'spear': 300,    # Medium area for mid-range (default)
-            'bow': 500,      # Large area for long-range
-            'custom': 300    # Custom area (user-defined)
-        }
-        self.current_weapon_type = 'spear'  # Default weapon type
         self.last_mob_seen_time = None
         self.hunting_delay = 1.0  # Wait 1 second before moving (faster response)
         self.movement_click_delay = 1.0  # Delay between movement clicks
@@ -85,9 +75,6 @@ class IHNTMobFinder:
         self.margin_bottom = 200    # Leave space for UI
         self.margin_left = 100
         self.margin_right = 100
-        
-        # Protection settings
-        self.character_protection_radius = 150  # Pixels around center
         
         # Targeting settings
         self.target_offset_y = 10  # Small offset to click mob body
@@ -238,7 +225,6 @@ class IHNTMobFinder:
     def set_current_target(self, target):
         """Set the current target and start tracking time"""
         self.current_target = target
-        self.target_selected_time = time.time()
         self.clear_detection_pause()  # Reset detection pause for new target
     
     def start_detection_pause(self):
@@ -259,11 +245,9 @@ class IHNTMobFinder:
         """Check if detection should be paused (health-based only, no timeout)"""
         # Only pause if actively fighting (red health detected)
         return self.detection_paused
-        print(f"   🎯 New target locked: {target['screen_position']} (conf: {target['confidence']:.2f})")
     
     def generate_movement_position(self):
         """Generate effective movement position with validation to avoid small steps"""
-        import math
         
         # Character position (center of screen)
         char_x, char_y = self.screen_width // 2, self.screen_height // 2
@@ -339,8 +323,6 @@ class IHNTMobFinder:
     def adjust_camera_angle(self):
         """Adjust camera angle by right-click dragging left or right"""
         try:
-            import time
-            
             # Get screen center for camera drag
             center_x, center_y = self.screen_width // 2, self.screen_height // 2
             
@@ -473,9 +455,6 @@ class IHNTMobFinder:
         print("🎯 Mob Targeting: Targets all detected mobs without restrictions")
         print("🧠 Smart Logic: Detects pet cards and switches to next target")
         print("✅ Ready for unrestricted hunting!")
-        
-        # Clear any old protection names since we're not using them
-        self.protected_names = []
     
     def capture_game_area(self):
         """Capture optimized game area for I-HNT AI processing"""
@@ -680,22 +659,6 @@ class IHNTMobFinder:
         print(f"🎯 ZONE TARGET SELECTED: ({pos[0]}, {pos[1]}) - Conf: {conf:.2f}")
         return target
     
-    def click_target(self, target):
-        """Click on the selected target"""
-        try:
-            target_pos = target['target_position']
-            
-            print(f"🖱️ Clicking target at {target_pos}")
-            
-            # Direct click for maximum speed
-            pyautogui.click(target_pos[0], target_pos[1], button='left')
-            
-            print("✅ Target clicked!")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Click failed: {e}")
-            return False
     
     def continuous_keyboard_automation(self):
         """Continuous keyboard pressing in background thread"""
