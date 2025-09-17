@@ -51,8 +51,11 @@ class IHNTMobFinder:
         }
         self.current_weapon_type = 'spear'  # Default weapon type
         self.last_mob_seen_time = None
-        self.hunting_delay = 2.0  # Wait 2 seconds before moving
-        self.movement_click_delay = 1.0  # Delay between movement clicks
+        
+        # Movement system - Updated parameters
+        self.movement_delay = 3.0  # Wait 3 seconds before moving (increased from 2.0)
+        self.movement_radius = 200  # 200px radius for movement (fixed, independent of hunting zone)
+        self.movement_click_delay = 0.5  # 0.5s delay between movement clicks (reduced from 1.0)
         
         # Global hotkey controls
         self.paused = False
@@ -103,6 +106,7 @@ class IHNTMobFinder:
             if self.death_handling_mode == "wait_help":
                 print(f"   Auto-res scroll slot: {self.auto_res_scroll_slot}")
         print(f"🎯 Detection Area: {self.current_weapon_type.title()} - {self.hunting_zone_radius}px radius")
+        print(f"🚶 Movement: 200px radius, 3s delay, 0.5s click delay")
         print("⚡ Performance: Optimized for smooth gameplay")
         print("🎮 Control: CapsLock hotkey ready")
         
@@ -397,25 +401,25 @@ class IHNTMobFinder:
         print(f"   🎯 New target locked: {target['screen_position']} (conf: {target['confidence']:.2f})")
     
     def generate_movement_position(self):
-        """Generate random position within hunting zone for character movement"""
+        """Generate random position within 200px movement radius for character movement"""
         import random
         import math
         
         # Character position (center of screen)
         char_x, char_y = self.screen_width // 2, self.screen_height // 2
         
-        # Generate random position within hunting zone for movement
+        # Generate random position within 200px movement radius
         angle = random.uniform(0, 2 * math.pi)  # 0 to 2π radians
-        # Use smaller distance for movement (stay within zone)
-        distance = random.uniform(100, self.hunting_zone_radius * 0.8)  # 80% of zone radius
+        # Use full movement radius (200px) for better exploration
+        distance = random.uniform(50, self.movement_radius)  # 50px to 200px from center
         
         # Calculate position
         move_x = int(char_x + distance * math.cos(angle))
         move_y = int(char_y + distance * math.sin(angle))
         
-        # Ensure within screen bounds and zone
-        move_x = max(char_x - self.hunting_zone_radius, min(move_x, char_x + self.hunting_zone_radius))
-        move_y = max(char_y - self.hunting_zone_radius, min(move_y, char_y + self.hunting_zone_radius))
+        # Ensure within movement radius bounds
+        move_x = max(char_x - self.movement_radius, min(move_x, char_x + self.movement_radius))
+        move_y = max(char_y - self.movement_radius, min(move_y, char_y + self.movement_radius))
         
         # Final screen boundary check
         move_x = max(100, min(move_x, self.screen_width - 100))
@@ -424,24 +428,24 @@ class IHNTMobFinder:
         return (move_x, move_y)
     
     def zone_movement_mode(self):
-        """Move character randomly within hunting zone when no mobs detected"""
+        """Move character randomly within 200px radius when no mobs detected"""
         if self.last_mob_seen_time is None:
             self.last_mob_seen_time = time.time()
             return
         
-        # Check if we should move (2 second delay)
+        # Check if we should move (3 second delay)
         time_since_last_mob = time.time() - self.last_mob_seen_time
         
-        if time_since_last_mob >= self.hunting_delay:
-            # Generate random movement position within zone
+        if time_since_last_mob >= self.movement_delay:
+            # Generate random movement position within 200px radius
             move_pos = self.generate_movement_position()
             
-            print(f"🚶 ZONE MOVEMENT: No mobs in zone for {time_since_last_mob:.1f}s - moving to {move_pos}")
+            print(f"🚶 MOVEMENT: No mobs detected for {time_since_last_mob:.1f}s - moving to {move_pos} (200px radius)")
             
             try:
-                # Click to move character within zone
+                # Click to move character within 200px radius
                 pyautogui.click(move_pos[0], move_pos[1], button='left')
-                time.sleep(self.movement_click_delay)
+                time.sleep(self.movement_click_delay)  # 0.5s delay
                 
                 # Reset timer after movement
                 self.last_mob_seen_time = time.time()
